@@ -1,0 +1,6 @@
+#!/bin/bash
+
+javac TestRegistrationAgentObject.java
+java TestRegistrationAgentObject
+
+rm *.class 
