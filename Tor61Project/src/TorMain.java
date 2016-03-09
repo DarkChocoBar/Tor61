@@ -105,6 +105,7 @@ public class TorMain {
 		// Extend Circuit CIRCUIT_SIZE times
 		int current_circuit_size = 0;
 		while (current_circuit_size < CIRCUIT_SIZE) {
+			System.out.println("Attempting to Extend Circuit...");
 			// If number of entries = 3, choose a random index 0,1,2
 			Entry e = entries.get(r.nextInt(entries.size()));
 			
@@ -112,10 +113,11 @@ public class TorMain {
 			if (!ps.extend(e)) {
 				System.out.println("We failed to extend circuit to entry: " + e);
 			} else {
+				System.out.println("Successfully Extended Circuit!");
 				current_circuit_size++;
 			}
+			System.out.println("Current Circuit Size: " + current_circuit_size);
 		}
-		
 		///////////////////////////// Done Creating Tor Circuit ////////////////////////////////
 		
 		// Keep running until user types 'q'
