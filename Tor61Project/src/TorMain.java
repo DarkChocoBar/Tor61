@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.List;
 import java.util.Scanner;
 
@@ -6,7 +8,7 @@ public class TorMain {
 	private static int GROUP_NUMBER;
 	private static int INSTANCE_NUMBER;
 	private static int PROXY_PORT;
-	private static int TOR_PORT = 13579; // THIS IS HARD CODED FOR NOW
+	private static int TOR_PORT;
 	private static String ROUTER_STRING_NAME;
 	private static RegistrationAgent AGENT;
 
@@ -15,8 +17,22 @@ public class TorMain {
 		
 		///////////////////////////// Start Tor Router/////////////////////////////////////////
 		
-		// must choose an available port for tor router and set TOR_PORT
-
+		ServerSocket tor_socket = null; // Socket the tor router will be using
+		try {
+			tor_socket = new ServerSocket(0);
+		} catch (IOException e1) {
+			System.out.println("Failed to create a server socket for tor router");
+			System.exit(1);
+		}
+		TOR_PORT = tor_socket.getLocalPort();
+		
+		TorRouter tor_router = new TorRouter(tor_socket);
+		
+		if (!tor_router.start()) {
+			System.out.println("Tor Router Failed to start");
+			System.exit(1);
+		} 
+		System.out.println("Tor Router is Listening on port: " + TOR_PORT);
 		///////////////////////////// Done Starting Tor Router/////////////////////////////////
 				
 		///////////////////////////// Initialize Agent ////////////////////////////////////////
@@ -31,7 +47,7 @@ public class TorMain {
 		// Run agent, which registers our Tor Router with the well-known registration service
 		System.out.println("About to register");
 
-		boolean registered = AGENT.register("r " + TOR_PORT + " " + serviceData + " " + ROUTER_STRING_NAME);
+		boolean registered = AGENT.register(TOR_PORT, serviceData, ROUTER_STRING_NAME);
 		
 		if (!registered) {
 			System.out.println("Failed to register Tor61 Router with Registration Service");
