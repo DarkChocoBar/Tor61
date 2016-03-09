@@ -13,9 +13,11 @@ public class TorMain {
 	public static void main(String[] args) {
 		verify(args);
 		
-		///////////////////////////// Create Tor Router////////////////////////////////////////
+		///////////////////////////// Start Tor Router/////////////////////////////////////////
+		
+		// must choose an available port for tor router and set TOR_PORT
 
-		///////////////////////////// Done Creating Tor Router/////////////////////////////////
+		///////////////////////////// Done Starting Tor Router/////////////////////////////////
 				
 		///////////////////////////// Initialize Agent ////////////////////////////////////////
 		AGENT = new RegistrationAgent();
@@ -45,7 +47,7 @@ public class TorMain {
 			System.out.println("Exception when trying to wait for other Tor Routers to register");
 		}
 
-		///////////////////////////// Finding Other Tor Routers ///////////////////////////////
+		///////////////////////////// Find Other Tor Routers ///////////////////////////////
 		System.out.println("About to Fetch");
 
 		List<Entry> entries = AGENT.fetch("f Tor61Router-" + GROUP_NUMBER);
@@ -64,9 +66,10 @@ public class TorMain {
 		
 		///////////////////////////// Done Finding Other Tor Routers ///////////////////////////
 		
+		
 		///////////////////////////// Create Tor Circuit ///////////////////////////////////////
 		
-		
+		// Must choose 4 random Routers from the list of found routers, and extend to them
 		
 		///////////////////////////// Done Creating Tor Circuit ////////////////////////////////
 
@@ -81,6 +84,7 @@ public class TorMain {
 		///////////////////////////// Done Starting Proxy Server ///////////////////////////////
 
 		
+		// Keep running until user types 'q'
 		Scanner scanner = new Scanner(System.in);
 		String next = "";
 		while (!next.equals("q")) {

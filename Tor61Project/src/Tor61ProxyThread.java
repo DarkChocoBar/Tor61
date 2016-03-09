@@ -8,14 +8,23 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.util.ArrayList;
 
+/**
+
+This currently sends all traffic directly to the destination
+Tor_port is provided, but is never used
+We must packaged all http requests into TOR packages, and send to Tor_port
+
+**/
 public class Tor61ProxyThread extends Thread {
+	private int PROXY_PORT;
 	private int TOR_PORT;
     private Socket socket = null;
     private static final int BUFFER_SIZE = 32768;
     
     // Set socket and tor_port number
-    public Tor61ProxyThread(Socket socket, int tor_port) {
+    public Tor61ProxyThread(Socket socket, int proxy_port, int tor_port) {
         this.socket = socket;
+        this.PROXY_PORT = proxy_port;
         this.TOR_PORT = tor_port;
     }
 
