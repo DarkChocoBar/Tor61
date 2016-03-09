@@ -1,6 +1,8 @@
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 public class TorMain {
@@ -9,8 +11,10 @@ public class TorMain {
 	private static int INSTANCE_NUMBER;
 	private static int PROXY_PORT;
 	private static int TOR_PORT;
+	private static InetAddress TOR_ADDRESS;
 	private static String ROUTER_STRING_NAME;
 	private static RegistrationAgent AGENT;
+	private static int CIRCUIT_SIZE = 4;
 
 	public static void main(String[] args) {
 		verify(args);
@@ -25,6 +29,7 @@ public class TorMain {
 			System.exit(1);
 		}
 		TOR_PORT = tor_socket.getLocalPort();
+		TOR_ADDRESS = tor_socket.getInetAddress();
 		
 		TorRouter tor_router = new TorRouter(tor_socket);
 		
@@ -81,17 +86,10 @@ public class TorMain {
 		System.out.println("Done");
 		
 		///////////////////////////// Done Finding Other Tor Routers ///////////////////////////
-		
-		
-		///////////////////////////// Create Tor Circuit ///////////////////////////////////////
-		
-		// Must choose 4 random Routers from the list of found routers, and extend to them
-		
-		///////////////////////////// Done Creating Tor Circuit ////////////////////////////////
 
 		///////////////////////////// Start Proxy Server ///////////////////////////////////////
 		
-		Tor61ProxyServer ps = new Tor61ProxyServer(PROXY_PORT, TOR_PORT);
+		Tor61ProxyServer ps = new Tor61ProxyServer(PROXY_PORT, TOR_PORT, TOR_ADDRESS);
 		if (ps.start())
 			System.out.println("Proxy Server Successfully Started");
 		else
@@ -99,6 +97,26 @@ public class TorMain {
 		
 		///////////////////////////// Done Starting Proxy Server ///////////////////////////////
 
+		///////////////////////////// Create Tor Circuit ///////////////////////////////////////
+				
+		// Must choose 4 random Routers from the list of found routers, and extend to them
+		Random r = new Random();
+		
+		// Extend Circuit CIRCUIT_SIZE times
+		int current_circuit_size = 0;
+		while (current_circuit_size < CIRCUIT_SIZE) {
+			// If number of entries = 3, choose a random index 0,1,2
+			Entry e = entries.get(r.nextInt(entries.size()));
+			
+			// If we failed to extend, try again with another random router
+			if (!ps.extend(e)) {
+				System.out.println("We failed to extend circuit to entry: " + e);
+			} else {
+				current_circuit_size++;
+			}
+		}
+		
+		///////////////////////////// Done Creating Tor Circuit ////////////////////////////////
 		
 		// Keep running until user types 'q'
 		Scanner scanner = new Scanner(System.in);
