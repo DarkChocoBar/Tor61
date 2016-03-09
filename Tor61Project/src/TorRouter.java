@@ -1,4 +1,7 @@
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -17,13 +20,13 @@ public class TorRouter {
 	private TorRouterThread ROUTER;
 	
 	private boolean LISTENING;
-	private Map<RouterTableKey,Integer> router_table;
+	private Map<RouterTableKey,DataOutputStream> ROUTER_TABLE;
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
 		ROUTER = null;
 		LISTENING = false;
-		router_table = new HashMap<RouterTableKey,Integer>();
+		ROUTER_TABLE = new HashMap<RouterTableKey,DataOutputStream>();
 	}
 	
 	/**
@@ -125,15 +128,40 @@ public class TorRouter {
 	private class ReadThread extends Thread {
 		
 		private Socket SOCKET;
+		private BufferedReader in;
 		
 		public ReadThread(Socket s) {
 			this.SOCKET = s;
+			try {
+				this.in = new BufferedReader(new InputStreamReader(SOCKET.getInputStream()));
+			} catch (IOException e) {
+				System.out.println("Error Creating Buffered Reader when constructing new ReadThread");
+				System.exit(1);
+			}
 		}
 		
 		public void run() {
 			while (LISTENING) {
-				
+				// THINGS TO DO: 1
+				// Read first 3 bytes in buffer (in)
+				/* 1. 0x0000 0x05 means open
+				 * 		Read 8 more bytes and confirm our name
+				 * 		Return an opened/open failed reply
+				 * 2. Circ ID 0x01 means create new circuit
+				 * 		add Socket,CircID pair to RouterTable
+				 * 		return Created Message
+				 * 3. Circ ID 0x04 means destroy this circuit
+				 * 		remove this circuit from RouterTable
+				 * 4. Circ ID 0x03 means relay
+				 * 		Check RouterTable and relay, or if no entry, read rest of message
+				 * 
+				 * MAKE SURE TO NOT DO ANY BLOCKING PROCEDURES
+				 * MAKE MORE THREADS TO HANDLE JOBS AS NESSISARY
+				 */
 			}
+			
+			// THINGS TO DO: 2
+			// Send Destroy/End Messages to everyone
 			
 			// Being here means that we are no longer LISTENING, and we want to quit
 			try {
@@ -141,6 +169,30 @@ public class TorRouter {
 			} catch (IOException e) {
 				System.out.println("IOException: ReadThread no longer listening, but failed to close socket");
 			}
+		}
+	}
+	
+	// THINGS TO DO: 3
+	// Implement WriteThread to handle all blocking procedures we don't want to do in ReadThread
+	// WriteThread will most likely take more input arguments or something to determine what to write
+	
+	/**
+	 * 
+	 * @author Tyler
+	 * 
+	 * Writes appropriate messages to a designated Streams
+	 *
+	 */
+	private class WriteThread extends Thread {
+		
+		private DataOutputStream out;
+
+		public WriteThread(RouterTableKey key) {
+			out = ROUTER_TABLE.get(key);
+		}
+		
+		public void run() {
+			
 		}
 	}
 	
