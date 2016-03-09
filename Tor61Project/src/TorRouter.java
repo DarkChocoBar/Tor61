@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.SocketException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 
@@ -11,12 +13,15 @@ import java.net.SocketException;
  */
 public class TorRouter {
 	private ServerSocket SOCKET;
-	protected boolean LISTENING;
 	private TorRouterThread ROUTER;
+	
+	protected boolean LISTENING;
+	protected Map<RouterTableKey,Integer> router_table;
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
 		LISTENING = false;
+		router_table = new HashMap<RouterTableKey,Integer>();
 	}
 	
 	/**
@@ -83,6 +88,38 @@ public class TorRouter {
 				System.out.println("IOException: Tor Router no longer listening, but failed to close socket");
 				System.exit(1);
 			}
+		}
+	}
+	
+	/**
+	 * 
+	 * @author Tyler
+	 * 
+	 * Inner class that creates a key for the router table
+	 *
+	 */
+	public class RouterTableKey {
+		
+		public ServerSocket socket;
+		public int circuit_id;
+		
+		public RouterTableKey(ServerSocket socket, int id) {
+			this.socket = socket;
+			circuit_id = id;
+		}
+		
+		@Override
+	    public int hashCode() {
+	        return circuit_id + 31 * socket.hashCode();
+	    }
+		
+		@Override
+		public boolean equals(Object o) {
+			if (o instanceof RouterTableKey) {
+				RouterTableKey key = (RouterTableKey)o;
+				return key.socket.equals(socket) && key.circuit_id == circuit_id;
+			}
+			return false;
 		}
 	}
 }
