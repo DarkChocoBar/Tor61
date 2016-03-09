@@ -119,7 +119,7 @@ public class Tor61ProxyServer {
 				// Set timeout to be 20 seconds
 				try {
 					serverSocket.setSoTimeout(20000);
-					new Tor61ProxyThread(serverSocket.accept(), PROXY_PORT, TOR_PORT).start();
+					new Tor61ProxyThread(serverSocket.accept(), PROXY_PORT, TOR_SOCKET).start();
 				} catch (SocketException e) {
 					System.out.println("SocketException when trying to listen to Proxy Server");
 					System.exit(1);
