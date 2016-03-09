@@ -17,15 +17,15 @@ We must packaged all http requests into TOR packages, and send to Tor_port
 **/
 public class Tor61ProxyThread extends Thread {
 	private int PROXY_PORT;
-	private int TOR_PORT;
+	private Socket TOR_SOCKET;
     private Socket socket = null;
     private static final int BUFFER_SIZE = 32768;
     
     // Set socket and tor_port number
-    public Tor61ProxyThread(Socket socket, int proxy_port, int tor_port) {
+    public Tor61ProxyThread(Socket socket, int proxy_port, Socket tor_socket) {
         this.socket = socket;
         this.PROXY_PORT = proxy_port;
-        this.TOR_PORT = tor_port;
+        this.TOR_SOCKET = tor_socket;
     }
 
     public void run() {
@@ -65,7 +65,8 @@ public class Tor61ProxyThread extends Thread {
             try {
 				if (request.toLowerCase().equals("connect")) {
 					try {
-						server = new Socket(host, port);
+						//server = new Socket(host, port);
+						server = TOR_SOCKET;
 						out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
 					} catch (ConnectException e){
 						out.write("HTTP/1.0 502 Bad Gateway\r\n\r\n".getBytes());
@@ -74,9 +75,18 @@ public class Tor61ProxyThread extends Thread {
 					
 					stream(in, out, server);
 				} else {
-					server = new Socket(host, port);
+					//server = new Socket(host, port);
+					server = TOR_SOCKET;
 					PrintWriter serverRequest = new PrintWriter(server.getOutputStream());
 				
+					// THINGS TO DO: 6
+					/*
+					 * Must package this next portion
+					 * Header must be wrapped with Tor Header
+					 * TCP Connection already exists
+					 * 
+					 */
+					
 					for (String s: header) {
 						serverRequest.print(s + "\r\n");
 					}
@@ -119,7 +129,7 @@ public class Tor61ProxyThread extends Thread {
 				// Satisfy Client Request by terminating
                 out.writeBytes("");
             }
-            
+                        
             if (out != null) {
 				out.close();
 			}
@@ -239,6 +249,12 @@ public class Tor61ProxyThread extends Thread {
 		public void run() {
 			while (!done) {
 				try {
+					// THINGS TO DO: 7
+					/*
+					 * Must package with Tor Header before writing to outputstream
+					 * Must unpack Tor Header before returning reply to client
+					 * 
+					 */
 					String next;
 					if ((next = in.readLine()) != null)
 						out.write(next.getBytes());
