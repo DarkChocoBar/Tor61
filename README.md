@@ -9,6 +9,11 @@ Search for the string:
 // THINGS TO DO:
 to find places that need to be implemented
 
+Classes that have things to do:
+TorRouter.java
+Tor61ProxyServer.java
+Tor61ProxyThread.java
+
 Just a warning, but TorRouter.java is a huge class.
 There are many global variables in TorRouter that many of the inner classes depend on
 ie. Routing Table, global variable to kill threads, ect.
