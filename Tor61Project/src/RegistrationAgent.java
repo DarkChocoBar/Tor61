@@ -81,8 +81,13 @@ public class RegistrationAgent {
 	}
 	
 	// This thread handles all user input
-	public boolean register(String in) {
-		String[] input = in.split("\\s+");
+	public boolean register(int tor_port, long service_data, String name) {
+		String[] input = new String[3];
+		input[0] = "r";
+		input[1] = "" + tor_port;
+		input[2] = "" + service_data;
+		input[3] = name;
+		
 		// Create new thread to handle each user command
 		Thread t = new Thread(new ThreadUserRequestHandler(main, input));
 		t.start();

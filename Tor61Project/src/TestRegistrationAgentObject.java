@@ -3,7 +3,7 @@ public class TestRegistrationAgentObject {
 	public static void main(String[] args) {
 		RegistrationAgent agent = new RegistrationAgent();
 		System.out.println("About to test run");
-		agent.register("r 44444 12345678 TestAgent");
+		agent.register(44444, 12345678, "TestAgent");
 		System.out.println("Finished testing run");
 		System.out.println("About to sleep for 240 seconds");
 		try {
