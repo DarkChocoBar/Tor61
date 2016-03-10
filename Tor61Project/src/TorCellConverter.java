@@ -89,8 +89,9 @@ public class TorCellConverter {
 		return OpenCellHelper(circuit_id, OPEN_CELL, opener, opener);
 	}
 	
-	public static byte[] getOpenedCell(short circuit_id, int opener, int opened) {
-		return OpenCellHelper(circuit_id, OPENED_CELL, opener, opener);
+	public static byte[] getOpenedCell(byte[] b) {
+		bb = ByteBuffer.wrap(b);
+		return OpenCellHelper(bb.getShort(0), OPENED_CELL, bb.getInt(3), bb.getInt(7));
 	}
 
 	public static byte[] getOpenFailCell(short circuit_id, int opener, int opened) {
