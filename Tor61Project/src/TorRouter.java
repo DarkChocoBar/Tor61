@@ -259,6 +259,7 @@ public class TorRouter {
 		private byte[] bytes;
 		private RouterTableKey routing_key;
 		private RouterTableKey stream_key;
+		private int agent_id;
 
 		public WriteThread(String command, Socket s, int cid, byte[] bytes) {
 			this.socket = s;
@@ -273,6 +274,8 @@ public class TorRouter {
 			this.bytes = bytes;
 			this.routing_key = new RouterTableKey(socket, cid);
 			this.stream_key = new RouterTableKey(socket, stream_id);
+			this.agent_id = TorCellConverter.getExtendAgent(bytes);
+
 		}
 		
 		public void run() {
@@ -288,20 +291,6 @@ public class TorRouter {
 					System.out.println("Error when 'forwarding' packets to next router in writethread");
 				}
 			// If we are the end of the circuit
-			} else if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) == null) {
-				// If there already exists a stream with the designated stream id, send it there
-				short stream_id = TorCellConverter.getStreamID(bytes);
-				RouterTableKey stream_key = new RouterTableKey(socket,stream_id);
-				if (STREAMS.containsKey(stream_key)) {
-					OutputStream toDestination = STREAMS.get(stream_key);
-					try {
-						toDestination.write(bytes);
-						toDestination.flush();
-					} catch (IOException e) {
-						System.out.println("Error when trying to forward packets to destination in write thread");
-					}
-				}
-			// Otherwise, handle the command
 			} else {
 				switch (command) {
 					case "open":
@@ -320,6 +309,9 @@ public class TorRouter {
 							}
 							System.out.println("Error when sending opened reply in write thread");
 						}
+						break;
+					// TODO
+					case "opened":
 						break;
 					case "create":
 						RouterTableKey key = new RouterTableKey(socket,cid);
@@ -340,8 +332,11 @@ public class TorRouter {
 							}
 						}
 						break;
+					// TODO
+					case "created":
+						break;
 					case "relay":
-						handleRelayCase(bytes);
+						handleRelayCase();
 						break;
 					default:
 						throw new IllegalArgumentException("Invalid command in write thread: " + command);
@@ -350,12 +345,14 @@ public class TorRouter {
 		}
 		
 		// Handles the case where we receive a relay tor packet
-		private void handleRelayCase(byte[] bytes) {
+		private void handleRelayCase() {
 			String relay_type = TorCellConverter.getCellType(bytes);
 			switch (relay_type) {
 				case "begin":
-					relayBegin(bytes);
+					relayBegin();
 					break;
+				case "data":
+					relayData();
 				case "end":
 					if (STREAMS.containsKey(stream_key))
 						STREAMS.remove(stream_key);
@@ -367,28 +364,8 @@ public class TorRouter {
 			}
 		}
 		
-		// Handles dealing with a relayExtend command
-		private void relayExtend() {
-			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
-			int agent_id = TorCellConverter.getExtendAgent(bytes);
-			if (CONNECTIONS.containsKey(agent_id)) {
-				// TODO
-				// send create message through already existing socket
-				// add to routing table
-				// reply with a extended message
-			} else {
-				// create a new socket
-				// sent open packet
-				// receive opened packet
-				// send create packet
-				// receive created packet
-				// add to connections and routing table
-				// reply with a extended message
-			}
-		}
-		
 		// Handles creating a new TCP connection with destination
-		private void relayBegin(byte[] bytes) {
+		private void relayBegin() {
 			InetSocketAddress address = TorCellConverter.getDestination(bytes);
 			Socket toDestination = null;
 			try {
@@ -462,6 +439,170 @@ public class TorRouter {
 			} catch (IOException e) {
 				System.out.println("Error when trying to close packStream in write thread");
 			}
+		}
+		
+		// Handles relaying data to existing stream to an existing destination
+		private void relayData() {
+			// If there already exists a stream with the designated stream id, send it there
+			if (STREAMS.containsKey(stream_key)) {
+				OutputStream toDestination = STREAMS.get(stream_key);
+				try {
+					toDestination.write(bytes);
+					toDestination.flush();
+				} catch (IOException e) {
+					System.out.println("Error when trying to forward packets to destination in write thread");
+				}
+			} else {
+				throw new IllegalArgumentException("Someone is trying to relay data to a stream that doesn't exist");
+			}
+		}
+		
+		// Handles dealing with a relayExtend command
+		private void relayExtend() {
+			assert(ROUTER_TABLE.containsKey(routing_key));
+			assert(ROUTER_TABLE.get(routing_key) == null);
+			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
+			Socket dest_socket = null;
+			DataOutputStream dest_stream = null;
+			short newCid = getNewCid(dest_socket);
+			
+			// If we already have a tcp connection to destination, use it
+			if (CONNECTIONS.containsKey(agent_id)) {
+				// Retreive existing socket
+				dest_socket = CONNECTIONS.get(agent_id);
+				try {
+					dest_stream = new DataOutputStream(dest_socket.getOutputStream());
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.out.println("Error when creating new DataOutputStream to an existing socket in relay extend in write thread");
+				}
+
+			// Otherwise, create a new tcp connection and do open protocol
+			} else {
+				// create a new socket
+				try {
+					dest_socket = new Socket(address.getAddress(), address.getPort());
+				} catch (IOException e) {
+					List<byte[]> bytes_list = TorCellConverter.getRelayCells("extend failed", cid, stream_id, "");
+					for (byte[] bs: bytes_list) {
+						try {
+							out.write(bs);
+							out.flush();
+						} catch (IOException e1) {
+							e1.printStackTrace();
+							System.out.println("Error when sending 'extend failed' in relayExtend in write thread");
+						}
+					}
+				}
+				// send open packet
+				try {
+					dest_stream.write(TorCellConverter.getOpenCell(newCid, AGENT_ID, agent_id));
+				} catch (IOException e) {
+					try {
+						for (byte[] bs: TorCellConverter.getRelayCells("extend failed", cid, stream_id, ""))
+							out.write(bs);
+					} catch (IOException e1) {
+						System.out.println("Error when sending extend failed because exception in send open cell relay extend in write thread");
+					}
+				}
+				
+				// wait until we receive a opened packet
+				// we will know if CONNECTIONS has a new entry: Agent_id, socket
+				// we will wait up to 10 seconds
+				try {
+					dest_socket.setSoTimeout(10000);
+					while (!CONNECTIONS.containsKey(agent_id)) {
+						continue;
+					}
+					dest_socket.setSoTimeout(0); // Kill timer
+					
+					// Being here means that we successfully received a opened cell
+				} catch (SocketException e) {
+					// Failed to receive opened cell
+					try {
+						for (byte[] bs: TorCellConverter.getRelayCells("extend failed", cid, stream_id, ""))
+							out.write(bs);
+					} catch (IOException e1) {
+						System.out.println("Timedout when waiting for opened cell in relay extend in write thread");
+					}
+				}
+			}
+			
+			RouterTableKey newKey = new RouterTableKey(dest_socket,newCid);
+			
+			// Send existing tor router a create cell to make extend new circuit
+			try {
+				dest_stream.write(TorCellConverter.getCreateCell(newCid));
+			} catch (IOException e) {
+				System.out.println("Error sending a create cell in relayExtend in write thread");
+				e.printStackTrace();
+			}
+			
+			// If receive created, new routing table entry: Dest -> null should be added
+			// Wait up to 10 seconds. If we don't get a created key, send create failed
+			try {
+				dest_socket.setSoTimeout(10000);
+				while (!ROUTER_TABLE.containsKey(newKey)) {
+					continue;
+				}
+				dest_socket.setSoTimeout(0); // Kill timer
+				// Being here means we successfully received a created cell
+				
+				// update Dest -> null to Dest -> client
+				assert(ROUTER_TABLE.get(newKey) == null);
+				RouterTableValue newValueToClient = new RouterTableValue(out,cid);
+				ROUTER_TABLE.put(newKey, newValueToClient);
+				
+				// update client -> null to client -> Dest
+				assert(ROUTER_TABLE.get(routing_key) == null);
+				RouterTableValue newValueToDest = new RouterTableValue(dest_stream,newCid);
+				ROUTER_TABLE.put(routing_key, newValueToDest);
+				
+				// Send extended cell to client
+				for (byte[] bs: TorCellConverter.getRelayCells("extended", cid, stream_id, "")) {
+					try {
+						out.write(bs);
+						out.flush();
+					} catch (IOException e) {
+						System.out.println("Error when sending client extended cell in relayExtend in write thread");
+					}
+				}
+			} catch (SocketException e) {
+				// This means we timed out. Return create failed cell
+				try {
+					out.write(TorCellConverter.getCreateFailCell(cid));
+				} catch (IOException e1) {
+					System.out.println("Error when trying to send create failed cell in relayExtend in write thread");
+				}
+			}
+		}
+		
+		// Finds a new cid not used between a specific socket
+		private short getNewCid(Socket dest_socket) {
+			// Must choose a new unique CID between existing tor router
+			
+			// If there is no existing connection, we are the opener
+			boolean isOpener = true;
+			// If there is an existing connection, check to see if we were the opener
+			if (OPENER.containsKey(dest_socket))
+				isOpener = OPENER.get(dest_socket).isOpener(agent_id);
+			
+			Random r = new Random();
+			short newCid = (short)r.nextInt(Short.MAX_VALUE);
+			if (isOpener && newCid % 2 == 0)
+				newCid++;
+			else if (!isOpener && newCid % 2 == 1)
+				newCid++;
+			RouterTableKey newKey = new RouterTableKey(dest_socket,newCid);
+			while (ROUTER_TABLE.containsKey(newKey)) {
+				newCid = (short)r.nextInt(Short.MAX_VALUE);
+				if (isOpener && newCid % 2 == 0)
+					newCid++;
+				else if (!isOpener && newCid % 2 == 1)
+					newCid++;
+				newKey = new RouterTableKey(dest_socket,newCid);
+			}
+			return newCid;
 		}
 	}
 }
