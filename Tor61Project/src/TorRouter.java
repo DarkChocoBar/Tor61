@@ -20,13 +20,13 @@ public class TorRouter {
 	private TorRouterThread ROUTER;
 	
 	private boolean LISTENING;
-	private Map<RouterTableKey,DataOutputStream> ROUTER_TABLE;
+	private Map<RouterTableKey,RouterTableValue> ROUTER_TABLE;
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
 		ROUTER = null;
 		LISTENING = false;
-		ROUTER_TABLE = new HashMap<RouterTableKey,DataOutputStream>();
+		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
 	}
 	
 	/**
@@ -188,7 +188,7 @@ public class TorRouter {
 		private DataOutputStream out;
 
 		public WriteThread(RouterTableKey key) {
-			out = ROUTER_TABLE.get(key);
+			out = ROUTER_TABLE.get(key).getStream();
 		}
 		
 		public void run() {
@@ -226,5 +226,40 @@ public class TorRouter {
 			}
 			return false;
 		}
+	}
+	
+	/**
+	 * 
+	 * @author Tyler
+	 * 
+	 * Inner class that is used as a value for the router table
+	 *
+	 */
+	private class RouterTableValue {
+		
+		private DataOutputStream stream;
+		private int circuit_id;
+		
+		public RouterTableValue(DataOutputStream stream, int id) {
+			this.stream = stream;
+			circuit_id = id;
+		}
+		
+		/**
+		 * return the data output stream
+		 * @return data output stream
+		 */
+		public DataOutputStream getStream() {
+			return stream;
+		}
+		
+		/**
+		 * return the circuit id
+		 * @return the circuit id
+		 */
+		public int getCID() {
+			return circuit_id;
+		}
+		
 	}
 }
