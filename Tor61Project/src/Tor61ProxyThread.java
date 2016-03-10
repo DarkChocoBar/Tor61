@@ -33,14 +33,14 @@ We must packaged all http requests into TOR packages, and send to Tor_port
 
 
 public class Tor61ProxyThread extends Thread {
-	private Socket TOR_SOCKET;
+	private PackOutputStream TOR_OUT_STREAM;
     private Socket socket = null;
     private static final int BUFFER_SIZE = 32768;
     
     // Set socket and tor_port number
-    public Tor61ProxyThread(Socket socket, int proxy_port, Socket tor_socket) {
+    public Tor61ProxyThread(Socket socket, int proxy_port, PackOutputStream stream) {
         this.socket = socket;
-        this.TOR_SOCKET = tor_socket;
+        this.TOR_OUT_STREAM = stream;
     }
 
     public void run() {
@@ -75,6 +75,7 @@ public class Tor61ProxyThread extends Thread {
 			Socket server = null;
             try {
 				if (request.toLowerCase().equals("connect")) {
+					// This is when we send a begin request if successful, send ok. else send bad gateway
 					try {
 						server = TOR_SOCKET;
 						out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
@@ -85,6 +86,8 @@ public class Tor61ProxyThread extends Thread {
 					
 					stream(in, out, server);
 				} else {
+					// This is how we used to send HTTP request to server. We now want to use PackOutputStream
+					/*
 					server = TOR_SOCKET;
 					PrintWriter serverRequest = new PrintWriter(server.getOutputStream());
 
@@ -93,7 +96,10 @@ public class Tor61ProxyThread extends Thread {
 					}
 					serverRequest.print("\r\n");
 					serverRequest.flush();
+					*/
 
+					// We are no longer reading. This is someone else's job
+					/*
 					InputStream is = server.getInputStream();
 					
 					// Set timer to 10 minutes
@@ -114,6 +120,7 @@ public class Tor61ProxyThread extends Thread {
 					
 					// Kill timer
 					server.setSoTimeout(0);
+					*/
 				}          
             } catch (Exception e) {
 				// Satisfy Client Request by terminating

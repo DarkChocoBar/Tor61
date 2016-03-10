@@ -40,6 +40,11 @@ public class TorCellConverter {
 		return ret;
 	}
 	
+	// TODO I made this but didn't test it. it should work
+	public static byte[] getCreateCell(short circuit_id) {
+		return CreateDestoryCellHelper(circuit_id, CREATED_CELL);
+	}
+	
 	public static byte[] getCreatedCell(short circuit_id) {
 		return CreateDestoryCellHelper(circuit_id, CREATED_CELL);
 	}
