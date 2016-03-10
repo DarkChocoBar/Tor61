@@ -172,6 +172,12 @@ public class TorCellConverter {
 		return agentID;
 	}
 	
+	// TODO test this. I wrote it but not sure if it works
+	public static short getStreamID(byte[] b) {
+		ByteBuffer bb = ByteBuffer.wrap(b);
+		return (short) ((bb.getShort(RELAY_CELL) >> 8) & 0xFF);		// deal with unsigned short
+	}
+	
 	public static byte[] updateCID(byte[] b, int newCID) {
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort((short) newCID);
