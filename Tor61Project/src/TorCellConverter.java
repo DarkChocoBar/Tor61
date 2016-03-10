@@ -7,6 +7,9 @@ import java.util.Arrays;
 public class TorCellConverter {
 	private static final int CELL_LENGTH = 512;
 	private static final int MAX_DATA_SIZE = 498;
+
+	private static final int RELAY_TYPE_INDEX = 13;
+	private static final int CELL_TYPE_INDEX = 2;
 	
 	private static final byte CREATE_CELL = 1;
 	private static final byte CREATED_CELL = 2;
@@ -14,8 +17,8 @@ public class TorCellConverter {
 	private static final byte DESTORY_CELL = 4;	
 	private static final byte OPEN_CELL = 5;
 	private static final byte OPENED_CELL = 6;
-	private static final byte OPEN_FAIL_CELL = 7;
-	private static final byte CREATE_FAIL_CELL = 8;
+	private static final byte OPEN_FAILED_CELL = 7;
+	private static final byte CREATE_FAILED_CELL = 8;
 
 	private static final byte BEGIN_RELAY_CMD = 1;
 	private static final byte DATA_RELAY_CMD = 2;
@@ -24,7 +27,7 @@ public class TorCellConverter {
 	private static final byte EXTEND_RELAY_CMD = 6;
 	private static final byte EXTENDED_RELAY_CMD = 7;
 	private static final byte BEGIN_FAILED_RELAY_CMD = 11;
-	private static final byte EXTEND_FAIL_RELAY_CMD = 12;
+	private static final byte EXTEND_FAILED_RELAY_CMD = 12;
 	
 	private static ByteBuffer bb;
 	
@@ -36,7 +39,7 @@ public class TorCellConverter {
 		return CreateDestoryCellHelper(circuit_id, CREATED_CELL);
 	}
 
-	public static ArrayList<byte[]> getRelayCell(String cmd, short circuit_id, short stream_id, String data) {
+	public static ArrayList<byte[]> getRelayCells(String cmd, short circuit_id, short stream_id, String data) {
 		cmd = cmd.toLowerCase();
 		ArrayList<byte[]> ret = new ArrayList<byte[]>();
 		byte[] data_arr = data.getBytes(Charset.forName("UTF-8"));
@@ -69,7 +72,7 @@ public class TorCellConverter {
 				ret.add(simpleRelaySubcellHelper(circuit_id, stream_id, BEGIN_FAILED_RELAY_CMD));
 				break;
 			case "extend failed":
-				ret.add(simpleRelaySubcellHelper(circuit_id, stream_id, EXTEND_FAIL_RELAY_CMD));
+				ret.add(simpleRelaySubcellHelper(circuit_id, stream_id, EXTEND_FAILED_RELAY_CMD));
 				break;
 			default:
 				throw new IllegalArgumentException("Invalid relay_cmd parameter passed into getRelayCell");
@@ -90,11 +93,46 @@ public class TorCellConverter {
 	}
 
 	public static byte[] getOpenFailCell(short circuit_id, int opener, int opened) {
-		return OpenCellHelper(circuit_id, OPEN_FAIL_CELL, opener, opener);
+		return OpenCellHelper(circuit_id, OPEN_FAILED_CELL, opener, opener);
 	}
 	
 	public static byte[] getCreateFailCell(short circuit_id) {
-		return CreateDestoryCellHelper(circuit_id, CREATE_FAIL_CELL);
+		return CreateDestoryCellHelper(circuit_id, CREATE_FAILED_CELL);
+	}
+	
+	public static short getCircuitId(byte[] b) {
+		ByteBuffer bb = ByteBuffer.wrap(b);
+		return (short) ((bb.getShort() >> 8) & 0xFF);		// deal with unsigned short
+	}
+	
+	public static String getCellType(byte[] b) {
+		ByteBuffer bb = ByteBuffer.wrap(b);
+		switch(bb.get(CELL_TYPE_INDEX)) {
+			case CREATE_CELL: return "create";
+			case CREATED_CELL: return "created";
+			case RELAY_CELL: return "relay";
+			case DESTORY_CELL: return "destory";
+			case OPEN_CELL: return "open";
+			case OPENED_CELL: return "opened";
+			case OPEN_FAILED_CELL: return "open failed";
+			case CREATE_FAILED_CELL: return "create failed";
+			default: throw new IllegalArgumentException("Invalid cell type");
+		}
+	}
+
+	public static String getRelaySubcellType(byte[] b) {
+		ByteBuffer bb = ByteBuffer.wrap(b);	
+		switch(bb.get(RELAY_TYPE_INDEX)) {
+			case BEGIN_RELAY_CMD: return "begin";
+			case DATA_RELAY_CMD: return "data";
+			case END_RELAY_CMD: return "end";
+			case CONNECTED_RELAY_CMD: return "connected";
+			case EXTEND_RELAY_CMD: return "extend";
+			case EXTENDED_RELAY_CMD: return "extended";
+			case BEGIN_FAILED_RELAY_CMD: return "begin failed";
+			case EXTEND_FAILED_RELAY_CMD: return "extend failed";
+			default: throw new IllegalArgumentException("Invalid cell type");
+		}
 	}
 
 	private static byte[] CreateDestoryCellHelper(short circuit_id, byte cell_num) {

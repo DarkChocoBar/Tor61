@@ -195,9 +195,7 @@ public class RegistrationAgent {
 					socket.setSoTimeout(5000);	// set the timeout in millisecounds.
 					socket.receive(dp);
 					socket.setSoTimeout(0);		// Stop timer
-					
-					byte[] request = dp.getData();
-					
+							
 					// Only request coming from Server should be a probe request
 					int seq = P1PMessage.valProbeRequest(dp.getData());
 					if (seq != -1) {
@@ -223,14 +221,12 @@ public class RegistrationAgent {
 		private DatagramSocket socket;		// the socket used for the thread
 		private String[] data;				// client input data
 		private String[] redata;
-		private boolean p;
 		private List<Entry> entries;
 		
 		public ThreadUserRequestHandler(DatagramSocket socket, String[] data) {
 			this.socket = socket;
 			this.data = data;
 			this.redata = null;
-			this.p = true;
 			this.entries = null;
 		}
 		
@@ -238,7 +234,6 @@ public class RegistrationAgent {
 			this.socket = socket;
 			this.data = data;
 			this.redata = redata;
-			this.p = true;
 			this.entries = null;
 		}
 		
@@ -246,7 +241,6 @@ public class RegistrationAgent {
 			this.socket = socket;
 			this.data = data;
 			this.redata = null;
-			this.p = true;
 			this.entries = e;
 		}
 		
@@ -258,7 +252,6 @@ public class RegistrationAgent {
 			this.data[0] = "u";
 			this.data[1] = "" + unregisterPort;
 			this.redata = null;
-			this.p = false;
 		}
 		
 		public void run() {			

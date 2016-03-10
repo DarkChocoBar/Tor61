@@ -171,13 +171,7 @@ public class TorMain {
 			String.format("%04d",INSTANCE_NUMBER);
 		}
 	}
-	
-	// Notifies Client of Usage Conditions
-	private static void usage() {
-		System.out.println("Usage: <group number, range from 1 to 9999> <instance number, range from 1 to 9999> <HTTP Proxy port, ranges from 1024 to 49151>");
-		System.exit(1);
-	}
-	
+
 	private static void terminate() {
 		System.out.println("Terminating. Goodbye");
 		System.exit(1);
