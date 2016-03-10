@@ -5,10 +5,10 @@ import java.net.Socket;
 import java.net.SocketException;
 
 public class Tor61ProxyServer {
-	private static int PROXY_PORT;
-	private static int TOR_PORT;
-	private static InetAddress TOR_ADDRESS;
-	private static boolean LISTENING;
+	private int PROXY_PORT;
+	private int TOR_PORT;
+	private InetAddress TOR_ADDRESS;
+	private boolean LISTENING;
 	private ProxyServerThread SERVER;
 	private Socket TOR_SOCKET;
 	

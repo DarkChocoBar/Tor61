@@ -138,7 +138,8 @@ public class TorMain {
 		System.out.println("About to terminate Proxy Server");
 		if (ps.quit())
 			System.out.println("Proxy Server Terminated");
-			
+		
+		scanner.close();
 		System.out.println("Everything successfully Terminated");
 		System.out.println("Good bye!");
 		System.exit(0);
