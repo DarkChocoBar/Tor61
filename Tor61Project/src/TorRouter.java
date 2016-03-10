@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -185,7 +186,7 @@ public class TorRouter {
 	 */
 	private class WriteThread extends Thread {
 		
-		private DataOutputStream out;
+		private OutputStream out;
 
 		public WriteThread(RouterTableKey key) {
 			out = ROUTER_TABLE.get(key).getStream();
@@ -237,10 +238,10 @@ public class TorRouter {
 	 */
 	private class RouterTableValue {
 		
-		private DataOutputStream stream;
+		private OutputStream stream;
 		private int circuit_id;
 		
-		public RouterTableValue(DataOutputStream stream, int id) {
+		public RouterTableValue(OutputStream stream, int id) {
 			this.stream = stream;
 			circuit_id = id;
 		}
@@ -249,7 +250,7 @@ public class TorRouter {
 		 * return the data output stream
 		 * @return data output stream
 		 */
-		public DataOutputStream getStream() {
+		public OutputStream getStream() {
 			return stream;
 		}
 		
@@ -261,5 +262,78 @@ public class TorRouter {
 			return circuit_id;
 		}
 		
+	}
+	
+	// THINGS TO DO: 9
+	/**
+	 * Implement this
+	 */
+	
+	/**
+	 * 
+	 * @author Tyler
+	 * 
+	 * DataOutputStream wrapper class
+	 * Writes to stream after unwrapping Tor Header
+	 *
+	 */
+	private class StreamUnpacker extends OutputStream{
+		
+		DataOutputStream stream;
+		
+		public StreamUnpacker(DataOutputStream stream) {
+			this.stream = stream;
+		}
+		
+		/**
+		 * Writes to stream after upwrapping Tor Header
+		 * @param b
+		 */
+		public void write(byte[] b) {
+			
+		}
+
+		@Override
+		public void write(int b) throws IOException {
+			// TODO Auto-generated method stub
+			
+		}
+	}
+	
+	
+	// THINGS TO DO: 10
+	/**
+	 * Implement this
+	 */
+	
+	/**
+	 * 
+	 * @author Tyler
+	 * 
+	 * DataOutputStream wrapper class
+	 * Writes to stream after unwrapping Tor Header
+	 *
+	 */
+	private class StreamPacker extends OutputStream {
+		
+		DataOutputStream stream;
+		
+		public StreamPacker(DataOutputStream stream) {
+			this.stream = stream;
+		}
+		
+		/**
+		 * Writes to stream after packing HTTP with Tor Header
+		 * @param b
+		 */
+		public void write(byte[] b) {
+			
+		}
+
+		@Override
+		public void write(int b) throws IOException {
+			// TODO Auto-generated method stub
+			
+		}
 	}
 }
