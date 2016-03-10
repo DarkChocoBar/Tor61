@@ -24,7 +24,6 @@ public class UnpackOutputStream extends OutputStream{
 	
 	public void write(byte[] b) throws IOException {
 		byte[] httpReq = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
-		System.out.println(httpReq.toString());
 		stream.write(httpReq);
 	}
 }
