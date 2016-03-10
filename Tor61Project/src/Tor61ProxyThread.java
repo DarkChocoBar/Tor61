@@ -16,7 +16,6 @@ We must packaged all http requests into TOR packages, and send to Tor_port
 
 **/
 public class Tor61ProxyThread extends Thread {
-	private int PROXY_PORT;
 	private Socket TOR_SOCKET;
     private Socket socket = null;
     private static final int BUFFER_SIZE = 32768;
@@ -24,7 +23,6 @@ public class Tor61ProxyThread extends Thread {
     // Set socket and tor_port number
     public Tor61ProxyThread(Socket socket, int proxy_port, Socket tor_socket) {
         this.socket = socket;
-        this.PROXY_PORT = proxy_port;
         this.TOR_SOCKET = tor_socket;
     }
 
@@ -53,10 +51,6 @@ public class Tor61ProxyThread extends Thread {
          			
             String get = header.get(0).trim();            
             String request = get.split("\\s+")[0];
-            
-            String host_ip = getHostLine(header);
-            int port = getPort(get, host_ip);
-            String host = getHost(host_ip);
                         
             System.out.println(get);
 
@@ -65,7 +59,6 @@ public class Tor61ProxyThread extends Thread {
             try {
 				if (request.toLowerCase().equals("connect")) {
 					try {
-						//server = new Socket(host, port);
 						server = TOR_SOCKET;
 						out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
 					} catch (ConnectException e){
@@ -75,30 +68,15 @@ public class Tor61ProxyThread extends Thread {
 					
 					stream(in, out, server);
 				} else {
-					//server = new Socket(host, port);
 					server = TOR_SOCKET;
 					PrintWriter serverRequest = new PrintWriter(server.getOutputStream());
-				
-					// THINGS TO DO: 6
-					/*
-					 * Must package this next portion
-					 * Header must be wrapped with Tor Header
-					 * TCP Connection already exists
-					 * 
-					 */
-					
+
 					for (String s: header) {
 						serverRequest.print(s + "\r\n");
 					}
 					serverRequest.print("\r\n");
 					serverRequest.flush();
-					
-					/*
-					BufferedReader sin = new BufferedReader(new InputStreamReader(server.getInputStream()));
-					
-					// process the request header: change the connection to close & header in arraylist
-					ArrayList<String> updatedHeader = processRequestHeader(in);
-					*/
+
 					InputStream is = server.getInputStream();
 					
 					// Set timer to 10 minutes
@@ -119,11 +97,6 @@ public class Tor61ProxyThread extends Thread {
 					
 					// Kill timer
 					server.setSoTimeout(0);
-					
-					/*
-					if (sin != null) {
-						sin.close();
-					}*/
 				}          
             } catch (Exception e) {
 				// Satisfy Client Request by terminating
@@ -187,36 +160,6 @@ public class Tor61ProxyThread extends Thread {
 				
 		return header;
 	}
-	
-	private static int getPort(String get, String host) {
-		int port = get.contains("https://") ? 443 : 80;
-		if (host.contains(":")) {
-			try {
-				port = Integer.parseInt(host.split(":")[1]);
-			} catch (Exception e) {
-				return -1;
-			}
-		}
-		return port;
-	}
-	
-	private static String getHost(String host) {
-		if (host.contains(":")) {
-			return host.split(":")[0].trim();
-		}
-		return host;
-	}
-	
-	private static String getHostLine(ArrayList<String> list) {
-		String ret = "";
-		for (String s : list) {
-			if (s.length() >= 6 && s.substring(0, 6).toLowerCase().equals("host: ")) {
-				ret = s.substring(6, s.length()).trim();
-				break;
-			}
-		}
-		return ret;
-	}
 
 	private static ArrayList<String> updateConnectionFieldandHttpVersion(ArrayList<String> list) {
 		for(int i = 0; i < list.size(); i++) {
@@ -249,12 +192,6 @@ public class Tor61ProxyThread extends Thread {
 		public void run() {
 			while (!done) {
 				try {
-					// THINGS TO DO: 7
-					/*
-					 * Must package with Tor Header before writing to outputstream
-					 * Must unpack Tor Header before returning reply to client
-					 * 
-					 */
 					String next;
 					if ((next = in.readLine()) != null)
 						out.write(next.getBytes());
