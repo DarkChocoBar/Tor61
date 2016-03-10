@@ -5,8 +5,9 @@ import java.util.Arrays;
 
 
 public class TorCellConverter {
-	private static final int CELL_LENGTH = 512;
-	private static final int MAX_DATA_SIZE = 498;
+	public static final int CELL_LENGTH = 512;
+	public static final int CELL_HEADER_SIZE = 14;
+	public static final int MAX_DATA_SIZE = CELL_LENGTH - CELL_HEADER_SIZE;
 
 	private static final int RELAY_TYPE_INDEX = 13;
 	private static final int CELL_TYPE_INDEX = 2;
