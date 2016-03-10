@@ -133,7 +133,7 @@ public class TorCellConverter {
 	}
 
 	private static byte[] withDataSubcellHelper(short circuit_id, short stream_id, byte relay_cmd, byte[] data) {
-		if (data.length >= MAX_DATA_SIZE)
+		if (data.length > MAX_DATA_SIZE)
 			throw new IllegalArgumentException("Invalid size of data passed in");
 
 		bb = ByteBuffer.allocate(CELL_LENGTH);
