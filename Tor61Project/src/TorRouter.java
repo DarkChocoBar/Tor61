@@ -28,16 +28,18 @@ public class TorRouter {
 	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
 	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
 	private static final int PACKAGE_SIZE = 512;
-	private Map<Short,Boolean> STREAMS;
+	private Map<RouterTableKey,Boolean> STREAMS;
+	private int AGENT_ID;
 
-	public TorRouter(ServerSocket socket) {
+	public TorRouter(ServerSocket socket, int agent_id) {
 		SOCKET = socket;
 		ROUTER = null;
 		LISTENING = false;
 		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
 		OPENER = new HashMap<Socket,Opener>();
 		CONNECTIONS = new HashMap<Integer,Socket>();
-		STREAMS = new HashMap<Short,Boolean>();
+		STREAMS = new HashMap<RouterTableKey,Boolean>();
+		AGENT_ID = agent_id;
 	}
 	
 	/**
@@ -288,7 +290,12 @@ public class TorRouter {
 				switch (command) {
 					case "open":
 						try {
-							out.write(TorCellConverter.getOpenedCell(bytes));
+							if (TorCellConverter.getOpenee(bytes) == AGENT_ID) {
+								OPENER.put(socket, new Opener(TorCellConverter.getOpener(bytes), AGENT_ID));
+								out.write(TorCellConverter.getOpenedCell(bytes));
+							} else {
+								out.write(TorCellConverter.getOpenFailCell(bytes));
+							}
 						} catch (IOException e) {
 							try {
 								out.write(TorCellConverter.getOpenFailCell(bytes));
@@ -334,9 +341,34 @@ public class TorRouter {
 					relayBegin(bytes);
 					break;
 				case "end":
+					// TODO we never use stream id ever
+					if (STREAMS.containsKey(key) && STREAMS.get(key))
+						STREAMS.put(key, false);
+					break;
 				case "extend":
+					relayExtend();
 				default:
 					throw new IllegalArgumentException("Invalid Relay Subcase in handleRelayCase: " + relay_type);
+			}
+		}
+		
+		// Handles dealing with a relayExtend command
+		private void relayExtend() {
+			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
+			int agent_id = TorCellConverter.getExtendAgent(bytes);
+			if (CONNECTIONS.containsKey(agent_id)) {
+				// TODO
+				// send create message through already existing socket
+				// add to routing table
+				// reply with a extended message
+			} else {
+				// create a new socket
+				// sent open packet
+				// receive opened packet
+				// send create packet
+				// receive created packet
+				// add to connections and routing table
+				// reply with a extended message
 			}
 		}
 		
@@ -383,7 +415,7 @@ public class TorRouter {
 			while (STREAMS.containsKey(streamID)) {
 				streamID = (short) (r.nextInt(Short.MAX_VALUE) + 1);
 			}
-			STREAMS.put(streamID, true);
+			STREAMS.put(key, true);
 			
 			// Reply with connected message
 			List<byte[]> bytes_list = TorCellConverter.getRelayCells("connected", cid, streamID, "");
@@ -403,7 +435,7 @@ public class TorRouter {
 			PackOutputStream packStream = new PackOutputStream(out);
             try {
 				BufferedReader in = new BufferedReader(new InputStreamReader(toDestination.getInputStream()));
-				while (STREAMS.get(streamID) && LISTENING) {
+				while (STREAMS.get(key) && LISTENING) {
 					packStream.write(in.read());
 					packStream.flush();
 				}
@@ -419,10 +451,6 @@ public class TorRouter {
 			} catch (IOException e) {
 				System.out.println("Error when trying to close packStream in write thread");
 			}
-
-			// If we are here, that means that this stream was closed
-			// Remove it from the map
-			STREAMS.remove(streamID);
 		}
 	}
 }
