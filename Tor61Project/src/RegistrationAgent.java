@@ -106,8 +106,10 @@ public class RegistrationAgent {
 	
 	// Returns all IP address and Port numbers of Routers with specified Prefix
 	// Returns null if there was some sort of error fetching
-	public List<Entry> fetch(String in) {
-		String[] input = in.split("\\s+");
+	public List<Entry> fetch(String prefix) {
+		String[] input = new String[2];
+		input[0] = "f";
+		input[1] = prefix;
 		
 		// Object to store result set
 		List<Entry> entries = new ArrayList<Entry>();
