@@ -38,7 +38,7 @@ public class Tor61ProxyServer {
 	}
 	
 	/**
-	 * Send a open and create message to through the new connection
+	 * Send a open and create message to the new connection
 	 */
 	private void sendOpenAndCreateMessage() {		
 		// THINGS TO DO: 4
@@ -70,6 +70,12 @@ public class Tor61ProxyServer {
             // Set Timer To 10 Minutes
             // If header is not processed within 5 seconds, assume client is dead
 			TOR_SOCKET.setSoTimeout(5 * 1000);
+			
+			// THINGS TO DO: Not done with #4 yet.
+			// 1. Need to wait, receive, and read opened message
+			// 2. Send and receive create message
+			
+			
 		} catch (SocketException e) {
 			System.out.println("Timed out waiting while sending open and create messages to Tor Router");
 		} catch (IOException e) {
