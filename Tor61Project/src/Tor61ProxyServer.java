@@ -1,8 +1,13 @@
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Map;
+import java.util.Random;
 
 public class Tor61ProxyServer {
 	private int PROXY_PORT;
@@ -11,31 +16,31 @@ public class Tor61ProxyServer {
 	private boolean LISTENING;
 	private ProxyServerThread SERVER;
 	private Socket TOR_SOCKET;
+	private int TOR_SERVICE_DATA;
+	private Map<Integer,Socket> CONNECTIONS;
 	
 	// Set proxy and tor ports
-	public Tor61ProxyServer(int proxy_port, int tor_port, InetAddress address) {
+	public Tor61ProxyServer(int proxy_port, int tor_port, InetAddress address, int service_data) {
 		this.PROXY_PORT = proxy_port;
 		this.TOR_PORT = tor_port;
 		this.TOR_ADDRESS = address;
 		if (PROXY_PORT < 1024 || PROXY_PORT > 49151)
 			terminate();
 		SERVER = null;
-		TOR_SOCKET = createProtocol();
-	}
-	
-	/**
-	 * Create a tcp connection with the Tor Router and follow all Tor Message Protocols
-	 * @return a tcp socket
-	 */
-	private Socket createProtocol() {
-		Socket s = null;
+		TOR_SERVICE_DATA = service_data;
 		try {
-			s = new Socket(TOR_ADDRESS, TOR_PORT);
+			TOR_SOCKET = new Socket(TOR_ADDRESS, TOR_PORT);
 		} catch (IOException e) {
 			System.out.println("Failed Creating a Socket with Tor Router at ip: " + TOR_ADDRESS + " and port: " + TOR_PORT);
 			System.exit(1);
 		}
-		
+		sendOpenAndCreateMessage();
+	}
+	
+	/**
+	 * Send a open and create message to through the new connection
+	 */
+	private void sendOpenAndCreateMessage() {		
 		// THINGS TO DO: 4
 		/*
 		 * Things to send on new tcp connection with router:
@@ -47,7 +52,30 @@ public class Tor61ProxyServer {
 		 * 		Must wait to receive Created reply
 		 * 		Must Handle if receive Create Fail
 		 */
-		return s;
+		Random r = new Random();
+		short cid = (short) r.nextInt(Short.MAX_VALUE);
+		if (cid % 2 == 0)
+			cid++;
+		while (CONNECTIONS.containsKey(cid)) {
+			cid = (short) r.nextInt(Short.MAX_VALUE);
+			if (cid % 2 == 0)
+				cid++;
+		}
+            
+        try {
+        	DataOutputStream out = new DataOutputStream(TOR_SOCKET.getOutputStream());
+            BufferedReader in = new BufferedReader(new InputStreamReader(TOR_SOCKET.getInputStream()));
+            
+            out.write(TorCellConverter.getOpenCell(cid, 0, TOR_SERVICE_DATA));
+            // Set Timer To 10 Minutes
+            // If header is not processed within 5 seconds, assume client is dead
+			TOR_SOCKET.setSoTimeout(5 * 1000);
+		} catch (SocketException e) {
+			System.out.println("Timed out waiting while sending open and create messages to Tor Router");
+		} catch (IOException e) {
+			System.out.println("Error when sending open and create messages to Tor Router");
+			System.exit(1);
+		}
 	}
 
 	// Start up proxy service on designated port

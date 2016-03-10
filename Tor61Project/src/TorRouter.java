@@ -24,6 +24,7 @@ public class TorRouter {
 	private Map<RouterTableKey,RouterTableValue> ROUTER_TABLE; 	// Tells us where to forward TOR packets
 	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
 	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
+	private static final int PACKAGE_SIZE = 512;
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
@@ -147,6 +148,30 @@ public class TorRouter {
 		
 		public void run() {
 			while (LISTENING) {
+				
+				BufferedReader in = null;
+				char[] next_cell = new char[PACKAGE_SIZE];
+				try {
+					in = new BufferedReader(new InputStreamReader(SOCKET.getInputStream()));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				// Read the next 512 bytes (one tor cell)
+				int read = 0;
+				while (read < PACKAGE_SIZE) {
+					try {
+						in.read(next_cell,read,PACKAGE_SIZE - read);
+					} catch (IOException e) {
+						System.out.println("Error when reading from buffered");
+					}
+				}
+				
+				// pass next_cell into TorCellConverter and
+				String command = TorCellConverter.something;
+				
+				
 				// THINGS TO DO: 1
 				// Read first 3 bytes in buffer (in)
 				/* 1. 0x0000 0x05 means open
@@ -163,16 +188,46 @@ public class TorRouter {
 				 * MAKE SURE TO NOT DO ANY BLOCKING PROCEDURES
 				 * MAKE MORE THREADS TO HANDLE JOBS AS NESSISARY
 				 */
+				
+				// Do something depending on the command
+				switch (command) {
+					case "":
+					default:
+						break;
+				}
 			}
 			
-			// THINGS TO DO: 2
-			// Send Destroy/End Messages to everyone
-			
 			// Being here means that we are no longer LISTENING, and we want to quit
+			prepareToQuit();
+			
 			try {
 				SOCKET.close();
 			} catch (IOException e) {
 				System.out.println("IOException: ReadThread no longer listening, but failed to close socket");
+			}
+		}
+		
+		private void prepareToQuit() {
+			// Send Destroy messages to everyone
+			for (RouterTableKey key: ROUTER_TABLE.keySet()) {
+				OutputStream s = ROUTER_TABLE.get(key).getStream();
+				try {
+					s.write(TorCellConverter.getDestoryCell((short)key.circuit_id));
+					s.flush();
+					s.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			// Close all sockets
+			for (Integer key: CONNECTIONS.keySet()) {
+				try {
+					CONNECTIONS.get(key).close();
+				} catch (IOException e) {
+					System.out.println("Failed to close socket when preparing to quit read thread");
+				}
 			}
 		}
 	}
@@ -200,10 +255,4 @@ public class TorRouter {
 			
 		}
 	}
-	
-	
-	
-	
-	
-	
 }

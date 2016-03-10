@@ -47,7 +47,7 @@ public class TorMain {
 		///////////////////////////// Register Tor Router /////////////////////////////////////
 		// Define service data to be: 32-bit value (xxxx << 16) | yyyy, i.e., the binary 
 		// concatenation of the group and instance numbers.
-		long serviceData = GROUP_NUMBER << 16 | INSTANCE_NUMBER;
+		int serviceData = GROUP_NUMBER << 16 | INSTANCE_NUMBER;
 		
 		// Run agent, which registers our Tor Router with the well-known registration service
 		System.out.println("About to register");
@@ -89,7 +89,7 @@ public class TorMain {
 
 		///////////////////////////// Start Proxy Server ///////////////////////////////////////
 		
-		Tor61ProxyServer ps = new Tor61ProxyServer(PROXY_PORT, TOR_PORT, TOR_ADDRESS);
+		Tor61ProxyServer ps = new Tor61ProxyServer(PROXY_PORT, TOR_PORT, TOR_ADDRESS, serviceData);
 		if (ps.start())
 			System.out.println("Proxy Server Successfully Started");
 		else
@@ -113,7 +113,7 @@ public class TorMain {
 			if (!ps.extend(e)) {
 				System.out.println("We failed to extend circuit to entry: " + e);
 			} else {
-				System.out.println("Successfully Extended Circuit!");
+				System.out.println("Successfully Extended Circuit to: " + e);
 				current_circuit_size++;
 			}
 			System.out.println("Current Circuit Size: " + current_circuit_size);
