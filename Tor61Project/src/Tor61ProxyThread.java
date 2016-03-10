@@ -15,6 +15,23 @@ Tor_port is provided, but is never used
 We must packaged all http requests into TOR packages, and send to Tor_port
 
 **/
+
+//TODO 
+/**
+ * 
+ * 	Current problem is: 1 Tor_Socket
+	Everyone is writing to Tor_Socket, and reading from Tor_Socket
+	ProxyThread should only get PackOutputStream, and Buffer In from client
+	Reads from clients, and writes to proxy thread
+	Proxy server will do all reading from tor and writing to clients
+	
+	What we need is a table of ‘client’ ports
+	ONLY 1 THREAD READS FROM TOR_SOCKET
+	It determines which ‘client’ port gets the data
+ *
+ */
+
+
 public class Tor61ProxyThread extends Thread {
 	private Socket TOR_SOCKET;
     private Socket socket = null;
