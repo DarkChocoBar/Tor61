@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Random;
 
@@ -40,18 +41,7 @@ public class Tor61ProxyServer {
 	/**
 	 * Send a open and create message to the new connection
 	 */
-	private void sendOpenAndCreateMessage() {		
-		// THINGS TO DO: 4
-		/*
-		 * Things to send on new tcp connection with router:
-		 * 1. Open command
-		 * 		Wait to receive opened reply
-		 * 		Must handle Open Failed
-		 * 2. Create command
-		 * 		Must choose a Circuit ID
-		 * 		Must wait to receive Created reply
-		 * 		Must Handle if receive Create Fail
-		 */
+	private void sendOpenAndCreateMessage() {
 		Random r = new Random();
 		short cid = (short) r.nextInt(Short.MAX_VALUE);
 		if (cid % 2 == 0)
@@ -70,17 +60,34 @@ public class Tor61ProxyServer {
             // Set Timer To 10 Minutes
             // If header is not processed within 5 seconds, assume client is dead
 			TOR_SOCKET.setSoTimeout(5 * 1000);
-			
-			// THINGS TO DO: Not done with #4 yet.
-			// 1. Need to wait, receive, and read opened message
-			// 2. Send and receive create message
-			
-			
+
+			// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
+			long startTime = System.currentTimeMillis();
+			while (!in.ready() && System.currentTimeMillis()-startTime <= 5000) {
+				ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
+				for (String line = in.readLine(); line != null; line = in.readLine()) {
+					bb.put(line.getBytes());
+				}
+				byte[] data = bb.array();
+
+				if (TorCellConverter.getCellType(data).equals("opened")) {
+					out.write(TorCellConverter.getCreateCell(data));
+					
+				} else if (TorCellConverter.getCellType(data).equals("open failed")) {
+					
+				} else {
+					throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
+							+ "Wrong message received, should be an opened message"
+							+ "or an open failed message.");
+				}
+			}
 		} catch (SocketException e) {
 			System.out.println("Timed out waiting while sending open and create messages to Tor Router");
 		} catch (IOException e) {
 			System.out.println("Error when sending open and create messages to Tor Router");
 			System.exit(1);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 
