@@ -16,10 +16,14 @@ import java.io.OutputStream;
  */
 public class PackOutputStream extends OutputStream {
 	
-	DataOutputStream stream;
+	private DataOutputStream stream;
+	private short cid;
+	private short stream_id;
 	
-	public PackOutputStream(DataOutputStream stream) {
+	public PackOutputStream(DataOutputStream stream, short cid, short stream_id) {
 		this.stream = stream;
+		this.cid = cid;
+		this.stream_id = stream_id;
 	}
 	
 	/**
