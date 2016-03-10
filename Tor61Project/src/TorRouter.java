@@ -274,20 +274,53 @@ public class TorRouter {
 					try {
 						out.write(TorCellConverter.getOpenedCell(bytes));
 					} catch (IOException e) {
+						try {
+							out.write(TorCellConverter.getOpenFailCell(bytes));
+						} catch (IOException e2) {
+							System.out.println("Error whenn sending open failed reply in write thread");
+						}
 						System.out.println("Error when sending opened reply in write thread");
 					}
 					break;
 				case "create":
-					try {
-						out.write(TorCellConverter.getCreatedCell((short)cid));
-					} catch (IOException e) {
-						System.out.println("Error when sending created reply in write thread");
+					RouterTableKey key = new RouterTableKey(socket,cid);
+					// If this cid is being used, reply with Create Cell Failed
+					if (ROUTER_TABLE.containsKey(key)) {
+						try {
+							out.write(TorCellConverter.getCreateFailCell((short)cid));
+						} catch (IOException e) {
+							System.out.println("Error when sending create fail reply in write thread");
+						}
+					// Proceed to add the circuit to our router table
+					} else {
+						ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
+						try {
+							out.write(TorCellConverter.getCreatedCell((short)cid));
+						} catch (IOException e) {
+							System.out.println("Error when sending created reply in write thread");
+						}
 					}
-					ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
 					break;
 				case "relay":
-					
+					handleRelayCase(bytes);
 					break;
+				default:
+					break;
+			}
+		}
+		
+		// Handles the case where we receive a relay tor packet
+		private void handleRelayCase(byte[] bytes) {
+			String relay_type = TorCellConverter.getCellType(bytes);
+			switch (relay_type) {
+				case "begin":
+				case "data":
+				case "end":
+				case "connected":
+				case "extend":
+				case "extended":
+				case "begin failed":
+				case "extend failed":
 				default:
 					break;
 			}
