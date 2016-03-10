@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -19,14 +20,18 @@ public class TorRouter {
 	private ServerSocket SOCKET;
 	private TorRouterThread ROUTER;
 	
-	private boolean LISTENING;
-	private Map<RouterTableKey,DataOutputStream> ROUTER_TABLE;
+	private boolean LISTENING;									// Class constant used to kill all threads
+	private Map<RouterTableKey,RouterTableValue> ROUTER_TABLE; 	// Tells us where to forward TOR packets
+	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
+	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
 		ROUTER = null;
 		LISTENING = false;
-		ROUTER_TABLE = new HashMap<RouterTableKey,DataOutputStream>();
+		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
+		OPENER = new HashMap<Socket,Opener>();
+		CONNECTIONS = new HashMap<Integer,Socket>();
 	}
 	
 	/**
@@ -185,10 +190,10 @@ public class TorRouter {
 	 */
 	private class WriteThread extends Thread {
 		
-		private DataOutputStream out;
+		private OutputStream out;
 
 		public WriteThread(RouterTableKey key) {
-			out = ROUTER_TABLE.get(key);
+			out = ROUTER_TABLE.get(key).getStream();
 		}
 		
 		public void run() {
@@ -196,35 +201,9 @@ public class TorRouter {
 		}
 	}
 	
-	/**
-	 * 
-	 * @author Tyler
-	 * 
-	 * Inner class that is used as a key for the router table
-	 *
-	 */
-	private class RouterTableKey {
-		
-		public ServerSocket socket;
-		public int circuit_id;
-		
-		public RouterTableKey(ServerSocket socket, int id) {
-			this.socket = socket;
-			circuit_id = id;
-		}
-		
-		@Override
-	    public int hashCode() {
-	        return circuit_id + 31 * socket.hashCode();
-	    }
-		
-		@Override
-		public boolean equals(Object o) {
-			if (o instanceof RouterTableKey) {
-				RouterTableKey key = (RouterTableKey)o;
-				return key.socket.equals(socket) && key.circuit_id == circuit_id;
-			}
-			return false;
-		}
-	}
+	
+	
+	
+	
+	
 }

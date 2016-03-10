@@ -71,7 +71,7 @@ public class TorMain {
 		///////////////////////////// Find Other Tor Routers ///////////////////////////////
 		System.out.println("About to Fetch");
 
-		List<Entry> entries = AGENT.fetch("f Tor61Router-" + GROUP_NUMBER);
+		List<Entry> entries = AGENT.fetch("Tor61Router-" + GROUP_NUMBER);
 		System.out.println("Done Fetching");
 		System.out.println("About to Print Contents of entires");
 		if (entries == null)
