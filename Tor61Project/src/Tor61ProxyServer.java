@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +20,7 @@ public class Tor61ProxyServer {
 	private ProxyServerThread SERVER;
 	private Socket TOR_SOCKET;
 	private int TOR_SERVICE_DATA;
-	private Map<Integer,Socket> CONNECTIONS;
+	private short CID;
 	
 	// Set proxy and tor ports
 	public Tor61ProxyServer(int proxy_port, int tor_port, InetAddress address, int service_data) {
@@ -44,20 +45,15 @@ public class Tor61ProxyServer {
 	 */
 	private void sendOpenAndCreateMessage() {
 		Random r = new Random();
-		short cid = (short) r.nextInt(Short.MAX_VALUE);
-		if (cid % 2 == 0)
-			cid++;
-		while (CONNECTIONS.containsKey(cid)) {
-			cid = (short) r.nextInt(Short.MAX_VALUE);
-			if (cid % 2 == 0)
-				cid++;
-		}
-            
+		CID = (short) r.nextInt(Short.MAX_VALUE);
+		if (CID % 2 == 0)
+			CID++;
+      
         try {
         	DataOutputStream out = new DataOutputStream(TOR_SOCKET.getOutputStream());
             BufferedReader in = new BufferedReader(new InputStreamReader(TOR_SOCKET.getInputStream()));
             
-            out.write(TorCellConverter.getOpenCell(cid, 0, TOR_SERVICE_DATA));
+            out.write(TorCellConverter.getOpenCell(CID, 0, TOR_SERVICE_DATA));
             // Set Timer To 10 Minutes
             // If header is not processed within 5 seconds, assume client is dead
 			TOR_SOCKET.setSoTimeout(5 * 1000);
@@ -132,19 +128,45 @@ public class Tor61ProxyServer {
     	}
     	return true;
     }
-    
+
     /**
      * Sends Tor Router Replay Extend Message to the address stored in Entry
      * @param e Entry object that stores the address of the next hop router
      * @return true if successful, false otherwise
+     * @throws Exception 
      */
-    public boolean extend(Entry e) {
-    	// THINGS TO DO: 5
-    	/*
-    	 * Send relay extend message to Tor Router
-    	 * Must wait for extended reply
-    	 * Return true if successful, and false otherwise
-    	 */
+    public boolean extend(Entry e) throws Exception {    	
+    	DataOutputStream out = new DataOutputStream(TOR_SOCKET.getOutputStream());
+        BufferedReader in = new BufferedReader(new InputStreamReader(TOR_SOCKET.getInputStream()));
+
+        ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.MAX_DATA_SIZE);
+        bb.put(e.ip.getAddress());
+        bb.put(":".getBytes());
+        bb.putInt(e.port);
+        bb.put((byte) 0);
+        bb.putInt(e.serviceData);
+        String extendData = bb.toString();
+        bb.clear();
+
+        ArrayList<byte[]> relayCells = TorCellConverter.getRelayCells("extend", CID, (short) 0, extendData);
+        if (relayCells.size() != 1)
+        	throw new Exception("Tor61ProxyServer:extend failed with wrong Relay cells created");
+        out.write(relayCells.get(0));
+		TOR_SOCKET.setSoTimeout(5 * 1000);
+
+		// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
+		long startTime = System.currentTimeMillis();
+		while (!in.ready() && System.currentTimeMillis()-startTime <= 5 * 1000)
+			TimeUnit.MICROSECONDS.sleep(100);
+		
+		bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
+		for (String line = in.readLine(); line != null; line = in.readLine()) {
+			bb.put(line.getBytes());
+		}
+		byte[] data = bb.array();
+
+		if (TorCellConverter.getRelaySubcellType(data).equals("extended"))
+			return true;
     	return false;
     }
 

@@ -110,11 +110,15 @@ public class TorMain {
 			Entry e = entries.get(r.nextInt(entries.size()));
 			
 			// If we failed to extend, try again with another random router
-			if (!ps.extend(e)) {
-				System.out.println("We failed to extend circuit to entry: " + e);
-			} else {
-				System.out.println("Successfully Extended Circuit to: " + e);
-				current_circuit_size++;
+			try {
+				if (!ps.extend(e)) {
+					System.out.println("We failed to extend circuit to entry: " + e);
+				} else {
+					System.out.println("Successfully Extended Circuit to: " + e);
+					current_circuit_size++;
+				}
+			} catch (Exception e1) {
+				e1.printStackTrace();
 			}
 			System.out.println("Current Circuit Size: " + current_circuit_size);
 		}
