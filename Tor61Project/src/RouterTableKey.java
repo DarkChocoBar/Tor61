@@ -1,4 +1,4 @@
-import java.net.ServerSocket;
+import java.net.Socket;
 
 /**
  * 
@@ -9,10 +9,10 @@ import java.net.ServerSocket;
  */
 public class RouterTableKey {
 	
-	public ServerSocket socket;
+	public Socket socket;
 	public int circuit_id;
 	
-	public RouterTableKey(ServerSocket socket, int id) {
+	public RouterTableKey(Socket socket, int id) {
 		this.socket = socket;
 		circuit_id = id;
 	}
