@@ -10,4 +10,9 @@ public class Entry {
 		this.port = port;
 		this.serviceData = serviceData;
 	}
+	
+	@Override
+	public String toString() {
+		return ip + ":" + port + " " + serviceData;
+	}
 }
