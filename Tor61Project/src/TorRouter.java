@@ -20,9 +20,10 @@ public class TorRouter {
 	private ServerSocket SOCKET;
 	private TorRouterThread ROUTER;
 	
-	private boolean LISTENING;
-	private Map<RouterTableKey,RouterTableValue> ROUTER_TABLE;
-	private Map<Socket,Opener> OPENER;
+	private boolean LISTENING;									// Class constant used to kill all threads
+	private Map<RouterTableKey,RouterTableValue> ROUTER_TABLE; 	// Tells us where to forward TOR packets
+	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
+	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
@@ -30,6 +31,7 @@ public class TorRouter {
 		LISTENING = false;
 		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
 		OPENER = new HashMap<Socket,Opener>();
+		CONNECTIONS = new HashMap<Integer,Socket>();
 	}
 	
 	/**
