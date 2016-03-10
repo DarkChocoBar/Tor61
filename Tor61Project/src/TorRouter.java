@@ -310,9 +310,12 @@ public class TorRouter {
 							System.out.println("Error when sending opened reply in write thread");
 						}
 						break;
-					// TODO
-						// Add new entry to CONNECTIONS
 					case "opened":
+						int openee_id = TorCellConverter.getOpenee(bytes);
+						assert(!CONNECTIONS.containsKey(openee_id));
+						
+						// Add new entry to CONNECTIONS with null value
+						CONNECTIONS.put(openee_id, null);
 						break;
 					case "create":
 						RouterTableKey key = new RouterTableKey(socket,cid);
@@ -333,9 +336,10 @@ public class TorRouter {
 							}
 						}
 						break;
-					// TODO
-						// Add new entry to ROUTER_TABLE
+						// Add new entry to ROUTER_TABLE with null value
 					case "created":
+						RouterTableKey newKey = new RouterTableKey(socket,cid);
+						ROUTER_TABLE.put(newKey, null);
 						break;
 					case "relay":
 						handleRelayCase();
@@ -519,6 +523,11 @@ public class TorRouter {
 					dest_socket.setSoTimeout(0); // Kill timer
 					
 					// Being here means that we successfully received a opened cell
+					assert(CONNECTIONS.get(agent_id) == null);
+					
+					// Update connections dest_agent_id -> null to dest_agent_id -> dest_socket
+					CONNECTIONS.put(agent_id,dest_socket);
+					
 				} catch (SocketException e) {
 					// Failed to receive opened cell
 					try {
@@ -527,6 +536,7 @@ public class TorRouter {
 					} catch (IOException e1) {
 						System.out.println("Timedout when waiting for opened cell in relay extend in write thread");
 					}
+					return;
 				}
 			}
 			
