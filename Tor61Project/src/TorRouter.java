@@ -3,11 +3,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * 
@@ -25,6 +28,7 @@ public class TorRouter {
 	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
 	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
 	private static final int PACKAGE_SIZE = 512;
+	private Map<Short,Boolean> STREAMS;
 
 	public TorRouter(ServerSocket socket) {
 		SOCKET = socket;
@@ -33,6 +37,7 @@ public class TorRouter {
 		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
 		OPENER = new HashMap<Socket,Opener>();
 		CONNECTIONS = new HashMap<Integer,Socket>();
+		STREAMS = new HashMap<Short,Boolean>();
 	}
 	
 	/**
@@ -135,16 +140,9 @@ public class TorRouter {
 	private class ReadThread extends Thread {
 		
 		private Socket READ_SOCKET;
-		private BufferedReader in;
 		
 		public ReadThread(Socket s) {
 			this.READ_SOCKET = s;
-			try {
-				this.in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
-			} catch (IOException e) {
-				System.out.println("Error Creating Buffered Reader when constructing new ReadThread");
-				System.exit(1);
-			}
 		}
 		
 		public void run() {
@@ -156,6 +154,7 @@ public class TorRouter {
 					in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
 				} catch (IOException e) {
 					e.printStackTrace();
+					System.out.println("Error when creating new buffered reader in read thread");
 				}
 				
 				// Read the next 512 bytes (one tor cell)
@@ -253,8 +252,9 @@ public class TorRouter {
 		private Socket socket;
 		private DataOutputStream out; // Stream to whoever sent us this command
 		private String command;
-		private int cid;
+		private short cid;
 		private byte[] bytes;
+		private RouterTableKey key;
 
 		public WriteThread(String command, Socket s, int cid, byte[] bytes) {
 			this.socket = s;
@@ -264,48 +264,65 @@ public class TorRouter {
 				e.printStackTrace();
 			}
 			this.command = command;
-			this.cid = cid;
+			this.cid = (short)cid;
 			this.bytes = bytes;
+			this.key = new RouterTableKey(socket, cid);
+
 		}
 		
 		public void run() {
-			switch (command) {
-				case "open":
-					try {
-						out.write(TorCellConverter.getOpenedCell(bytes));
-					} catch (IOException e) {
+			// If we are not the end of the circuit, forward to the next tor router
+			if (ROUTER_TABLE.containsKey(key) && ROUTER_TABLE.get(key) != null) {
+				RouterTableValue value = ROUTER_TABLE.get(key);
+				OutputStream next = value.getStream();
+				int nextCID = value.getCID();
+				try {
+					next.write(TorCellConverter.updateCID(bytes,nextCID));
+					next.flush();
+				} catch (IOException e) {
+					System.out.println("Error when 'forwarding' packets to next router in writethread");
+				}
+				
+			// Otherwise, handle the command
+			} else {
+				switch (command) {
+					case "open":
 						try {
-							out.write(TorCellConverter.getOpenFailCell(bytes));
-						} catch (IOException e2) {
-							System.out.println("Error whenn sending open failed reply in write thread");
-						}
-						System.out.println("Error when sending opened reply in write thread");
-					}
-					break;
-				case "create":
-					RouterTableKey key = new RouterTableKey(socket,cid);
-					// If this cid is being used, reply with Create Cell Failed
-					if (ROUTER_TABLE.containsKey(key)) {
-						try {
-							out.write(TorCellConverter.getCreateFailCell((short)cid));
+							out.write(TorCellConverter.getOpenedCell(bytes));
 						} catch (IOException e) {
-							System.out.println("Error when sending create fail reply in write thread");
+							try {
+								out.write(TorCellConverter.getOpenFailCell(bytes));
+							} catch (IOException e2) {
+								System.out.println("Error whenn sending open failed reply in write thread");
+							}
+							System.out.println("Error when sending opened reply in write thread");
 						}
-					// Proceed to add the circuit to our router table
-					} else {
-						ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
-						try {
-							out.write(TorCellConverter.getCreatedCell((short)cid));
-						} catch (IOException e) {
-							System.out.println("Error when sending created reply in write thread");
+						break;
+					case "create":
+						RouterTableKey key = new RouterTableKey(socket,cid);
+						// If this cid is being used, reply with Create Cell Failed
+						if (ROUTER_TABLE.containsKey(key)) {
+							try {
+								out.write(TorCellConverter.getCreateFailCell((short)cid));
+							} catch (IOException e) {
+								System.out.println("Error when sending create fail reply in write thread");
+							}
+						// Proceed to add the circuit to our router table
+						} else {
+							ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
+							try {
+								out.write(TorCellConverter.getCreatedCell((short)cid));
+							} catch (IOException e) {
+								System.out.println("Error when sending created reply in write thread");
+							}
 						}
-					}
-					break;
-				case "relay":
-					handleRelayCase(bytes);
-					break;
-				default:
-					break;
+						break;
+					case "relay":
+						handleRelayCase(bytes);
+						break;
+					default:
+						throw new IllegalArgumentException("Invalid command in write thread: " + command);
+				}
 			}
 		}
 		
@@ -314,6 +331,8 @@ public class TorRouter {
 			String relay_type = TorCellConverter.getCellType(bytes);
 			switch (relay_type) {
 				case "begin":
+					relayBegin(bytes);
+					break;
 				case "data":
 				case "end":
 				case "connected":
@@ -322,8 +341,93 @@ public class TorRouter {
 				case "begin failed":
 				case "extend failed":
 				default:
-					break;
+					throw new IllegalArgumentException("Invalid Relay Subcase in handleRelayCase: " + relay_type);
 			}
+		}
+		
+		// Handles creating a new TCP connection with destination
+		private void relayBegin(byte[] bytes) {
+			InetSocketAddress address = TorCellConverter.getDestination(bytes);
+			Socket toDestination = null;
+			try {
+				toDestination = new Socket(address.getAddress(), address.getPort());
+			} catch (IOException e) {
+				List<byte[]> bytes_list = TorCellConverter.getRelayCells("begin failed", cid, (short)0, "");
+				for (byte[] bs: bytes_list) {
+					try {
+						out.write(bs);
+						out.flush();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+						System.out.println("Error when sending 'begin failed' in relayBegin in write thread");
+					}
+				}
+			}
+			
+			// We should only be doing this if we are at the end and there is no previous stream
+			assert(ROUTER_TABLE.containsKey(key));
+			assert(ROUTER_TABLE.get(key) == null);
+			
+			// Insert into router table source -> destination
+			try {
+				ROUTER_TABLE.put(key, new RouterTableValue(new UnpackOutputStream(new DataOutputStream(toDestination.getOutputStream())),cid));
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.out.println("Error when trying to add destination stream to router table in write thread");
+			}
+			
+			RouterTableKey destToSourceKey = new RouterTableKey(toDestination, cid);
+			RouterTableValue destToSourceValue = new RouterTableValue(out, cid);
+			
+			// Insert into router table destination -> source
+			ROUTER_TABLE.put(destToSourceKey, destToSourceValue);
+			
+			// Find a new stream number and add it to the Streams table
+			Random r = new Random();
+			short streamID = (short) (r.nextInt(Short.MAX_VALUE) + 1);
+			while (STREAMS.containsKey(streamID)) {
+				streamID = (short) (r.nextInt(Short.MAX_VALUE) + 1);
+			}
+			STREAMS.put(streamID, true);
+			
+			// Reply with connected message
+			List<byte[]> bytes_list = TorCellConverter.getRelayCells("connected", cid, streamID, "");
+			for (byte[] bs: bytes_list) {
+				try {
+					out.write(bs);
+					out.flush();
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.out.println("Error when sending 'connected' message back to source in write thread");
+				}
+			}
+			
+			// Since this thread is supposed to terminate anyways, we will instead use it to forever read
+			// from this newly created socket and direct it to the begin source
+			
+			PackOutputStream packStream = new PackOutputStream(out);
+            try {
+				BufferedReader in = new BufferedReader(new InputStreamReader(toDestination.getInputStream()));
+				while (STREAMS.get(streamID) && LISTENING) {
+					packStream.write(in.read());
+					packStream.flush();
+				}
+				in.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.out.println("Error when packing stream from destination, back to source in write thread");
+			}  
+            
+            // Close streams
+            try {
+				packStream.close();
+			} catch (IOException e) {
+				System.out.println("Error when trying to close packStream in write thread");
+			}
+
+			// If we are here, that means that this stream was closed
+			// Remove it from the map
+			STREAMS.remove(streamID);
 		}
 	}
 }
