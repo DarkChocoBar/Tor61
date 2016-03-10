@@ -3,9 +3,11 @@ import java.io.DataOutputStream;
 
 public class TestUnpackOutputStream {
 	public static void main(String [] args) {
+		byte[] b = "hello world".getBytes();
+		System.out.println(b);
 		try {
 			DataOutputStream s = new DataOutputStream(System.out);
-			s.writeByte(5);
+			s.write(b[0]);
 			s.close();
 		} catch (Exception e) {
 			System.err.println("ooooops");
