@@ -333,13 +333,8 @@ public class TorRouter {
 				case "begin":
 					relayBegin(bytes);
 					break;
-				case "data":
 				case "end":
-				case "connected":
 				case "extend":
-				case "extended":
-				case "begin failed":
-				case "extend failed":
 				default:
 					throw new IllegalArgumentException("Invalid Relay Subcase in handleRelayCase: " + relay_type);
 			}
