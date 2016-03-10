@@ -155,7 +155,6 @@ public class TorRouter {
 				try {
 					in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -226,7 +225,6 @@ public class TorRouter {
 						s.flush();
 						s.close();
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
@@ -263,7 +261,6 @@ public class TorRouter {
 			try {
 				out = new DataOutputStream(s.getOutputStream());
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			this.command = command;
