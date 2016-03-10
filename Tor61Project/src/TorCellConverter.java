@@ -154,6 +154,24 @@ public class TorCellConverter {
 		return new InetSocketAddress(host, port);
 	}
 	
+	// TODO test this. I wrote it but not sure if it works
+	public static InetSocketAddress getExtendDestination(byte[] b) {
+		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
+		byte[] httpReqArr = httpReqArrAgentID.toString().split("\0")[0].getBytes();
+		String httpReq = new String(httpReqArr);
+		String host = httpReq.split(":")[0];
+		int port = Integer.parseInt(httpReq.split(":")[1]);
+		return new InetSocketAddress(host, port);
+	}
+	
+	// TODO test this. I wrote it but not sure if it works
+	public static int getExtendAgent(byte[] b) {
+		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
+		String agent = httpReqArrAgentID.toString().split("\0")[1];
+		int agentID = Integer.parseInt(agent);
+		return agentID;
+	}
+	
 	public static byte[] updateCID(byte[] b, int newCID) {
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort((short) newCID);
