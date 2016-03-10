@@ -43,6 +43,7 @@ public class TorRouter {
 		if (!LISTENING && ROUTER == null) {
 			LISTENING = true;
 			ROUTER = new TorRouterThread(SOCKET);
+			ROUTER.start();
 			return true;
 		} else {
 			System.out.println("Tor Router is already listening");
@@ -86,20 +87,20 @@ public class TorRouter {
 	 *
 	 */
 	private class TorRouterThread extends Thread {
-		private ServerSocket SOCKET;
+		private ServerSocket ROUTER_SOCKET;
 		
 		public TorRouterThread(ServerSocket socket) {
-			this.SOCKET = socket;	
+			this.ROUTER_SOCKET = socket;	
 		}
 		
 		public void run() {
 			while (LISTENING) {
 				// Set timeout to be 20 seconds
 				try {
-					SOCKET.setSoTimeout(20000);
+					ROUTER_SOCKET.setSoTimeout(20000);
 					
-					Socket s = SOCKET.accept();
-					SOCKET.setSoTimeout(0); // Kill the timer
+					Socket s = ROUTER_SOCKET.accept();
+					ROUTER_SOCKET.setSoTimeout(0); // Kill the timer
 					
 					// Create new thread to handle receiving messages
 					Thread read_thread = new ReadThread(s);
@@ -116,7 +117,7 @@ public class TorRouter {
 			}
 			// Being here means that we are no longer LISTENING, and we want to quit
 			try {
-				SOCKET.close();
+				ROUTER_SOCKET.close();
 			} catch (IOException e) {
 				System.out.println("IOException: Tor Router no longer listening, but failed to close socket");
 			}
@@ -133,13 +134,13 @@ public class TorRouter {
 	 */
 	private class ReadThread extends Thread {
 		
-		private Socket SOCKET;
+		private Socket READ_SOCKET;
 		private BufferedReader in;
 		
 		public ReadThread(Socket s) {
-			this.SOCKET = s;
+			this.READ_SOCKET = s;
 			try {
-				this.in = new BufferedReader(new InputStreamReader(SOCKET.getInputStream()));
+				this.in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
 			} catch (IOException e) {
 				System.out.println("Error Creating Buffered Reader when constructing new ReadThread");
 				System.exit(1);
@@ -152,7 +153,7 @@ public class TorRouter {
 				BufferedReader in = null;
 				char[] next_cell = new char[PACKAGE_SIZE];
 				try {
-					in = new BufferedReader(new InputStreamReader(SOCKET.getInputStream()));
+					in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -168,9 +169,13 @@ public class TorRouter {
 					}
 				}
 				
-				// pass next_cell into TorCellConverter and
-				String command = TorCellConverter.something;
+				// pass next_cell into TorCellConverter and find out what the command was
+				byte[] bytes = next_cell.toString().getBytes();
 				
+				assert(bytes.length == PACKAGE_SIZE); // MAKE SURE CONVERSION KEEPS IT AT PACKAGE_SIZE
+				
+				String command = TorCellConverter.getCellType(bytes);
+				int cid = TorCellConverter.getCircuitId(bytes);
 				
 				// THINGS TO DO: 1
 				// Read first 3 bytes in buffer (in)
@@ -191,7 +196,13 @@ public class TorRouter {
 				
 				// Do something depending on the command
 				switch (command) {
-					case "":
+					case "open":
+					case "create":
+					case "relay":
+						new WriteThread(command, READ_SOCKET, cid, bytes).start();
+					case "destroy":
+						destroyConnection(cid);
+						break;
 					default:
 						break;
 				}
@@ -201,23 +212,40 @@ public class TorRouter {
 			prepareToQuit();
 			
 			try {
-				SOCKET.close();
+				READ_SOCKET.close();
 			} catch (IOException e) {
 				System.out.println("IOException: ReadThread no longer listening, but failed to close socket");
 			}
+		}
+		
+		/**
+		 * Remove this circuit from routing table
+		 * @param cid
+		 */
+		private void destroyConnection(int cid) {
+			RouterTableKey key = new RouterTableKey(READ_SOCKET,cid);
+			RouterTableValue value = ROUTER_TABLE.get(key);
+			try {
+				value.getStream().close();
+			} catch (IOException e) {
+				System.out.println("Error when trying to close Stream when we received a destroy cell");
+			}
+			ROUTER_TABLE.remove(key);
 		}
 		
 		private void prepareToQuit() {
 			// Send Destroy messages to everyone
 			for (RouterTableKey key: ROUTER_TABLE.keySet()) {
 				OutputStream s = ROUTER_TABLE.get(key).getStream();
-				try {
-					s.write(TorCellConverter.getDestoryCell((short)key.circuit_id));
-					s.flush();
-					s.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				if (s != null) {
+					try {
+						s.write(TorCellConverter.getDestoryCell((short)key.circuit_id));
+						s.flush();
+						s.close();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 			}
 			
@@ -245,14 +273,48 @@ public class TorRouter {
 	 */
 	private class WriteThread extends Thread {
 		
-		private OutputStream out;
+		private Socket socket;
+		private DataOutputStream out; // Stream to whoever sent us this command
+		private String command;
+		private int cid;
+		private byte[] bytes;
 
-		public WriteThread(RouterTableKey key) {
-			out = ROUTER_TABLE.get(key).getStream();
+		public WriteThread(String command, Socket s, int cid, byte[] bytes) {
+			this.socket = s;
+			try {
+				out = new DataOutputStream(s.getOutputStream());
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			this.command = command;
+			this.cid = cid;
+			this.bytes = bytes;
 		}
 		
 		public void run() {
-			
+			switch (command) {
+				case "open":
+					try {
+						out.write(TorCellConverter.getOpenedCell(bytes));
+					} catch (IOException e) {
+						System.out.println("Error when sending opened reply in write thread");
+					}
+					break;
+				case "create":
+					try {
+						out.write(TorCellConverter.getCreatedCell((short)cid));
+					} catch (IOException e) {
+						System.out.println("Error when sending created reply in write thread");
+					}
+					ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
+					break;
+				case "relay":
+					
+					break;
+				default:
+					break;
+			}
 		}
 	}
 }
