@@ -18,6 +18,7 @@ public class Tor61ProxyServer {
 	private boolean LISTENING;
 	private ProxyServerThread SERVER;
 	private Socket TOR_SOCKET;
+	private DataOutputStream TOR_OUT_STREAM;
 	private int TOR_SERVICE_DATA;
 	private short CID;
 	
@@ -32,6 +33,7 @@ public class Tor61ProxyServer {
 		TOR_SERVICE_DATA = service_data;
 		try {
 			TOR_SOCKET = new Socket(TOR_ADDRESS, TOR_PORT);
+			TOR_OUT_STREAM = new DataOutputStream(TOR_SOCKET.getOutputStream());
 		} catch (IOException e) {
 			System.out.println("Failed Creating a Socket with Tor Router at ip: " + TOR_ADDRESS + " and port: " + TOR_PORT);
 			System.exit(1);
@@ -194,7 +196,8 @@ public class Tor61ProxyServer {
 				// Set timeout to be 20 seconds
 				try {
 					serverSocket.setSoTimeout(20000);
-					new Tor61ProxyThread(serverSocket.accept(), PROXY_PORT, TOR_SOCKET).start();
+					Socket newClient = serverSocket.accept();
+					new Tor61ProxyThread(newClient, PROXY_PORT, new PackOutputStream(TOR_OUT_STREAM,CID,(short)0)).start();
 				} catch (SocketException e) {
 					System.out.println("SocketException when trying to listen to Proxy Server");
 					System.exit(1);
