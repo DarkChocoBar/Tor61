@@ -28,7 +28,7 @@ public class TorRouter {
 	private Map<Socket,Opener> OPENER;			// Stores opener, openee relationship of a socket
 	private Map<Integer,Socket> CONNECTIONS; 	// Maps Router ID to socket. Only 1 socket per router
 	private static final int PACKAGE_SIZE = 512;
-	private Map<RouterTableKey,Boolean> STREAMS;
+	private Map<RouterTableKey,OutputStream> STREAMS; // <Socket, StreamID> map toa stream
 	private int AGENT_ID;
 
 	public TorRouter(ServerSocket socket, int agent_id) {
@@ -38,7 +38,7 @@ public class TorRouter {
 		ROUTER_TABLE = new HashMap<RouterTableKey,RouterTableValue>();
 		OPENER = new HashMap<Socket,Opener>();
 		CONNECTIONS = new HashMap<Integer,Socket>();
-		STREAMS = new HashMap<RouterTableKey,Boolean>();
+		STREAMS = new HashMap<RouterTableKey,OutputStream>();
 		AGENT_ID = agent_id;
 	}
 	
@@ -255,8 +255,10 @@ public class TorRouter {
 		private DataOutputStream out; // Stream to whoever sent us this command
 		private String command;
 		private short cid;
+		private short stream_id;
 		private byte[] bytes;
-		private RouterTableKey key;
+		private RouterTableKey routing_key;
+		private RouterTableKey stream_key;
 
 		public WriteThread(String command, Socket s, int cid, byte[] bytes) {
 			this.socket = s;
@@ -267,15 +269,16 @@ public class TorRouter {
 			}
 			this.command = command;
 			this.cid = (short)cid;
+			this.stream_id = TorCellConverter.getStreamID(bytes);
 			this.bytes = bytes;
-			this.key = new RouterTableKey(socket, cid);
-
+			this.routing_key = new RouterTableKey(socket, cid);
+			this.stream_key = new RouterTableKey(socket, stream_id);
 		}
 		
 		public void run() {
 			// If we are not the end of the circuit, forward to the next tor router
-			if (ROUTER_TABLE.containsKey(key) && ROUTER_TABLE.get(key) != null) {
-				RouterTableValue value = ROUTER_TABLE.get(key);
+			if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) != null) {
+				RouterTableValue value = ROUTER_TABLE.get(routing_key);
 				OutputStream next = value.getStream();
 				int nextCID = value.getCID();
 				try {
@@ -284,7 +287,20 @@ public class TorRouter {
 				} catch (IOException e) {
 					System.out.println("Error when 'forwarding' packets to next router in writethread");
 				}
-				
+			// If we are the end of the circuit
+			} else if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) == null) {
+				// If there already exists a stream with the designated stream id, send it there
+				short stream_id = TorCellConverter.getStreamID(bytes);
+				RouterTableKey stream_key = new RouterTableKey(socket,stream_id);
+				if (STREAMS.containsKey(stream_key)) {
+					OutputStream toDestination = STREAMS.get(stream_key);
+					try {
+						toDestination.write(bytes);
+						toDestination.flush();
+					} catch (IOException e) {
+						System.out.println("Error when trying to forward packets to destination in write thread");
+					}
+				}
 			// Otherwise, handle the command
 			} else {
 				switch (command) {
@@ -341,9 +357,8 @@ public class TorRouter {
 					relayBegin(bytes);
 					break;
 				case "end":
-					// TODO we never use stream id ever
-					if (STREAMS.containsKey(key) && STREAMS.get(key))
-						STREAMS.put(key, false);
+					if (STREAMS.containsKey(stream_key))
+						STREAMS.remove(stream_key);
 					break;
 				case "extend":
 					relayExtend();
@@ -379,7 +394,7 @@ public class TorRouter {
 			try {
 				toDestination = new Socket(address.getAddress(), address.getPort());
 			} catch (IOException e) {
-				List<byte[]> bytes_list = TorCellConverter.getRelayCells("begin failed", cid, (short)0, "");
+				List<byte[]> bytes_list = TorCellConverter.getRelayCells("begin failed", cid, stream_id, "");
 				for (byte[] bs: bytes_list) {
 					try {
 						out.write(bs);
@@ -390,35 +405,31 @@ public class TorRouter {
 					}
 				}
 			}
-			
+						
 			// We should only be doing this if we are at the end and there is no previous stream
-			assert(ROUTER_TABLE.containsKey(key));
-			assert(ROUTER_TABLE.get(key) == null);
+			assert(ROUTER_TABLE.containsKey(routing_key));
+			assert(ROUTER_TABLE.get(routing_key) == null);
+			assert(!STREAMS.containsKey(stream_key));
 			
-			// Insert into router table source -> destination
+			// Insert into stream table source -> destination
 			try {
-				ROUTER_TABLE.put(key, new RouterTableValue(new UnpackOutputStream(new DataOutputStream(toDestination.getOutputStream())),cid));
+				STREAMS.put(stream_key, new UnpackOutputStream(new DataOutputStream(toDestination.getOutputStream())));
 			} catch (IOException e) {
 				e.printStackTrace();
 				System.out.println("Error when trying to add destination stream to router table in write thread");
 			}
 			
 			RouterTableKey destToSourceKey = new RouterTableKey(toDestination, cid);
-			RouterTableValue destToSourceValue = new RouterTableValue(out, cid);
 			
-			// Insert into router table destination -> source
-			ROUTER_TABLE.put(destToSourceKey, destToSourceValue);
-			
-			// Find a new stream number and add it to the Streams table
-			Random r = new Random();
-			short streamID = (short) (r.nextInt(Short.MAX_VALUE) + 1);
-			while (STREAMS.containsKey(streamID)) {
-				streamID = (short) (r.nextInt(Short.MAX_VALUE) + 1);
+			if (!ROUTER_TABLE.containsKey(destToSourceKey)) {
+				RouterTableValue destToSourceValue = new RouterTableValue(out, cid);
+				
+				// Insert into router table destination -> source
+				ROUTER_TABLE.put(destToSourceKey, destToSourceValue);
 			}
-			STREAMS.put(key, true);
 			
 			// Reply with connected message
-			List<byte[]> bytes_list = TorCellConverter.getRelayCells("connected", cid, streamID, "");
+			List<byte[]> bytes_list = TorCellConverter.getRelayCells("connected", cid, stream_id, "");
 			for (byte[] bs: bytes_list) {
 				try {
 					out.write(bs);
@@ -432,10 +443,10 @@ public class TorRouter {
 			// Since this thread is supposed to terminate anyways, we will instead use it to forever read
 			// from this newly created socket and direct it to the begin source
 			
-			PackOutputStream packStream = new PackOutputStream(out);
+			PackOutputStream packStream = new PackOutputStream(out, cid, stream_id);
             try {
 				BufferedReader in = new BufferedReader(new InputStreamReader(toDestination.getInputStream()));
-				while (STREAMS.get(key) && LISTENING) {
+				while (STREAMS.containsKey(stream_key) && LISTENING) {
 					packStream.write(in.read());
 					packStream.flush();
 				}
