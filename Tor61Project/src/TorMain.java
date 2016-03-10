@@ -21,6 +21,10 @@ public class TorMain {
 		
 		///////////////////////////// Start Tor Router/////////////////////////////////////////
 		
+		// Define service data to be: 32-bit value (xxxx << 16) | yyyy, i.e., the binary 
+		// concatenation of the group and instance numbers.
+		int serviceData = GROUP_NUMBER << 16 | INSTANCE_NUMBER;
+				
 		ServerSocket tor_socket = null; // Socket the tor router will be using
 		try {
 			tor_socket = new ServerSocket(0);
@@ -31,7 +35,7 @@ public class TorMain {
 		TOR_PORT = tor_socket.getLocalPort();
 		TOR_ADDRESS = tor_socket.getInetAddress();
 		
-		TorRouter tor_router = new TorRouter(tor_socket);
+		TorRouter tor_router = new TorRouter(tor_socket, serviceData);
 		
 		if (!tor_router.start()) {
 			System.out.println("Tor Router Failed to start");
@@ -45,9 +49,6 @@ public class TorMain {
 		///////////////////////////// Done Initializing Agent//////////////////////////////////
 
 		///////////////////////////// Register Tor Router /////////////////////////////////////
-		// Define service data to be: 32-bit value (xxxx << 16) | yyyy, i.e., the binary 
-		// concatenation of the group and instance numbers.
-		int serviceData = GROUP_NUMBER << 16 | INSTANCE_NUMBER;
 		
 		// Run agent, which registers our Tor Router with the well-known registration service
 		System.out.println("About to register");
