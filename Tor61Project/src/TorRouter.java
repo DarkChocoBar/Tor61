@@ -177,23 +177,6 @@ public class TorRouter {
 				String command = TorCellConverter.getCellType(bytes);
 				int cid = TorCellConverter.getCircuitId(bytes);
 				
-				// THINGS TO DO: 1
-				// Read first 3 bytes in buffer (in)
-				/* 1. 0x0000 0x05 means open
-				 * 		Read 8 more bytes and confirm our name
-				 * 		Return an opened/open failed reply
-				 * 2. Circ ID 0x01 means create new circuit
-				 * 		add Socket,CircID pair to RouterTable
-				 * 		return Created Message
-				 * 3. Circ ID 0x04 means destroy this circuit
-				 * 		remove this circuit from RouterTable
-				 * 4. Circ ID 0x03 means relay
-				 * 		Check RouterTable and relay, or if no entry, read rest of message
-				 * 
-				 * MAKE SURE TO NOT DO ANY BLOCKING PROCEDURES
-				 * MAKE MORE THREADS TO HANDLE JOBS AS NESSISARY
-				 */
-				
 				// Do something depending on the command
 				switch (command) {
 					case "open":
@@ -259,10 +242,6 @@ public class TorRouter {
 			}
 		}
 	}
-	
-	// THINGS TO DO: 3
-	// Implement WriteThread to handle all blocking procedures we don't want to do in ReadThread
-	// WriteThread will most likely take more input arguments or something to determine what to write
 	
 	/**
 	 * 
