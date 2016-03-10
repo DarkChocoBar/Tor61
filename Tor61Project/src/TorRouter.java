@@ -311,6 +311,7 @@ public class TorRouter {
 						}
 						break;
 					// TODO
+						// Add new entry to CONNECTIONS
 					case "opened":
 						break;
 					case "create":
@@ -333,6 +334,7 @@ public class TorRouter {
 						}
 						break;
 					// TODO
+						// Add new entry to ROUTER_TABLE
 					case "created":
 						break;
 					case "relay":
