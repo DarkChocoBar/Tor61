@@ -163,6 +163,20 @@ public class TorCellConverter {
 		return b;
 	}
 	
+	public static int getOpener(byte[] b) {
+		bb = ByteBuffer.wrap(b);
+		int opener = bb.getInt(3);
+		bb.clear();
+		return opener;
+	}
+	
+	public static int getOpenee(byte[] b) {
+		bb = ByteBuffer.wrap(b);
+		int opener = bb.getInt(7);
+		bb.clear();
+		return opener;
+	}
+	
 	private static byte[] CreateDestoryCellHelper(short circuit_id, byte cell_num) {
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort(circuit_id);
