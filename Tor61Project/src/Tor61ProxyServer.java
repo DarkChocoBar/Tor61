@@ -9,6 +9,7 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class Tor61ProxyServer {
 	private int PROXY_PORT;
@@ -63,23 +64,35 @@ public class Tor61ProxyServer {
 
 			// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
 			long startTime = System.currentTimeMillis();
-			while (!in.ready() && System.currentTimeMillis()-startTime <= 5000) {
-				ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
+			while (!in.ready() && System.currentTimeMillis()-startTime <= 5 * 1000)
+				TimeUnit.MICROSECONDS.sleep(100);
+			
+			ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
+			for (String line = in.readLine(); line != null; line = in.readLine()) {
+				bb.put(line.getBytes());
+			}
+			byte[] data = bb.array();
+
+			if (TorCellConverter.getCellType(data).equals("opened")) {
+				out.write(TorCellConverter.getCreateCell(data));
+				
+				startTime = System.currentTimeMillis();
+				// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
+				while (!in.ready() && System.currentTimeMillis()-startTime <= 5 * 1000)
+					TimeUnit.MICROSECONDS.sleep(100);
+				
+				bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
 				for (String line = in.readLine(); line != null; line = in.readLine()) {
 					bb.put(line.getBytes());
 				}
-				byte[] data = bb.array();
-
-				if (TorCellConverter.getCellType(data).equals("opened")) {
-					out.write(TorCellConverter.getCreateCell(data));
-					
-				} else if (TorCellConverter.getCellType(data).equals("open failed")) {
-					
-				} else {
+				data = bb.array();
+				if (!TorCellConverter.getCellType(data).equals("created")) {
 					throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
-							+ "Wrong message received, should be an opened message"
-							+ "or an open failed message.");
-				}
+							+ "Didn't receive created cell message");
+				}	
+			} else {
+				throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
+						+ "Didn't receive opened cell message");
 			}
 		} catch (SocketException e) {
 			System.out.println("Timed out waiting while sending open and create messages to Tor Router");
