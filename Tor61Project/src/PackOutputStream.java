@@ -38,8 +38,9 @@ public class PackOutputStream extends OutputStream {
 	 */
 	public void write(byte[] b) throws IOException {
 		int index = 0;
-		while (0 < b.length) {
-			byte[] data = Arrays.copyOfRange(b, index, Math.min(index + TorCellConverter.MAX_DATA_SIZE, b.length));
+		while (index < b.length) {
+			int end = Math.min(index + TorCellConverter.MAX_DATA_SIZE, b.length);
+			byte[] data = Arrays.copyOfRange(b, index, end);
 			byte[] header = getHeader((short) data.length);
 
 			byte[] relayCell = new byte[data.length + header.length];
