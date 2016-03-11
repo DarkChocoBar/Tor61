@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 
 
@@ -48,31 +49,31 @@ public class Tor61ProxyThread extends Thread {
             String host_ip = getHostLine(header);
             int port = getPort(get, host_ip);
             String host = getHost(host_ip);
+            
+            // We need to send begin cell
+			// If begin success, write ok. else send bad gateway
+			String data = host + ":" + port + '\0';
+			for (byte[] bs: TorCellConverter.getRelayCells("begin", CID, STREAM_ID, data))
+				TOR_OUT_STREAM.write(bs);
+			
+			// Wait for connected reply up to 10 seconds
+			SOCKET.setSoTimeout(10000);
+		
+			while (!Tor61ProxyServer.STREAMS.containsKey(STREAM_ID)) {
+				continue;
+			}
+			SOCKET.setSoTimeout(0); // Kill the timer
+			
+			// Successfully received connected reply
 
             try {
 				if (request.toLowerCase().equals("connect")) {
 					// This is when we send a begin request if successful, send ok. else send bad gateway
 					try {
-						// TODO
-						// We need to send begin cell
-						// If begin success, write ok. else send bad gateway
-						String data = host + ":" + port + '\0';
-						for (byte[] bs: TorCellConverter.getRelayCells("begin", CID, STREAM_ID, data))
-							TOR_OUT_STREAM.write(bs);
-						
-						// Wait for connected reply up to 10 seconds
-						try {
-							SOCKET.setSoTimeout(10000);
-						
-						while (!Tor61ProxyServer.STREAMS.containsKey(STREAM_ID)) {
-							continue;
-						}
-						} catch (Socket) {
-							
-						}
-						
+
 						client_out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
 						client_out.flush();
+					// TODO We can never get to this part of the code. 
 					} catch (ConnectException e){
 						client_out.write("HTTP/1.0 502 Bad Gateway\r\n\r\n".getBytes());
 						client_out.flush();
@@ -130,10 +131,7 @@ public class Tor61ProxyThread extends Thread {
             
             // Close stream
             assert(Tor61ProxyServer.STREAMS.containsKey(STREAM_ID));
-            Socket s = Tor61ProxyServer.STREAMS.get(STREAM_ID);
-            if (s != null) {
-            	s.close();
-            }
+
             Tor61ProxyServer.STREAMS.remove(STREAM_ID);
             
             if (client_out != null) {
