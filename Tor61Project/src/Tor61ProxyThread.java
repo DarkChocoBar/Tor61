@@ -57,10 +57,19 @@ public class Tor61ProxyThread extends Thread {
 			
 			// Wait for connected reply up to 10 seconds
 			SOCKET.setSoTimeout(10000);
+			
+			
+			
 		
+			// TODO commenting this out for testing purposes
+			/*
 			while (!Tor61ProxyServer.STREAMS.containsKey(STREAM_ID)) {
 				continue;
 			}
+			*/
+			
+			
+			
 			SOCKET.setSoTimeout(0); // Kill the timer
 			
 			// Successfully received connected reply
@@ -131,7 +140,8 @@ public class Tor61ProxyThread extends Thread {
             // Close stream
             assert(Tor61ProxyServer.STREAMS.containsKey(STREAM_ID));
 
-            Tor61ProxyServer.STREAMS.remove(STREAM_ID);
+            // TODO commenting this out for testing purposes
+            //Tor61ProxyServer.STREAMS.remove(STREAM_ID);
             
             if (client_out != null) {
             	client_out.close();
