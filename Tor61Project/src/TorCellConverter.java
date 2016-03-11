@@ -39,8 +39,7 @@ public class TorCellConverter {
 		bb.clear();
 		return ret;
 	}
-	
-	// TODO I made this but didn't test it. it should work
+
 	public static byte[] getCreateCell(short circuit_id) {
 		return CreateDestoryCellHelper(circuit_id, CREATED_CELL);
 	}
@@ -117,13 +116,17 @@ public class TorCellConverter {
 	}
 	
 	public static short getCircuitId(byte[] b) {
+		assert(b.length >= 2);
 		ByteBuffer bb = ByteBuffer.wrap(b);
 		return (short) ((bb.getShort() >> 8) & 0xFF);		// deal with unsigned short
 	}
 	
 	public static String getCellType(byte[] b) {
+		assert(b.length >= CELL_TYPE_INDEX);
 		ByteBuffer bb = ByteBuffer.wrap(b);
-		switch(bb.get(CELL_TYPE_INDEX)) {
+		byte tempByte = bb.get(CELL_TYPE_INDEX);
+		bb.clear();
+		switch(tempByte) {
 			case CREATE_CELL: return "create";
 			case CREATED_CELL: return "created";
 			case RELAY_CELL: return "relay";
@@ -138,7 +141,11 @@ public class TorCellConverter {
 
 	public static String getRelaySubcellType(byte[] b) {
 		ByteBuffer bb = ByteBuffer.wrap(b);	
-		switch(bb.get(RELAY_TYPE_INDEX)) {
+		assert(bb.get(2) == RELAY_CELL);
+		assert(b.length >= RELAY_TYPE_INDEX);
+		byte tempByte = bb.get(RELAY_TYPE_INDEX);
+	    bb.clear();
+		switch(tempByte) {
 			case BEGIN_RELAY_CMD: return "begin";
 			case DATA_RELAY_CMD: return "data";
 			case END_RELAY_CMD: return "end";
@@ -151,16 +158,13 @@ public class TorCellConverter {
 		}
 	}
 
-	public static InetSocketAddress getDestination(byte[] b) {
-		byte[] httpReqArr = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
-		String httpReq = new String(httpReqArr);
-		String host = httpReq.split(":")[0];
-		int port = Integer.parseInt(httpReq.split(":")[1]);
-		return new InetSocketAddress(host, port);
-	}
-	
-	// TODO test this. I wrote it but not sure if it works
 	public static InetSocketAddress getExtendDestination(byte[] b) {
+		ByteBuffer bb = ByteBuffer.wrap(b);	
+		assert(bb.get(2) == RELAY_CELL);
+		assert(b.length >= TorCellConverter.CELL_HEADER_SIZE);
+		assert(bb.get(13) == BEGIN_RELAY_CMD);
+		bb.clear();
+
 		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
 		byte[] httpReqArr = httpReqArrAgentID.toString().split("\0")[0].getBytes();
 		String httpReq = new String(httpReqArr);
@@ -168,19 +172,28 @@ public class TorCellConverter {
 		int port = Integer.parseInt(httpReq.split(":")[1]);
 		return new InetSocketAddress(host, port);
 	}
-	
-	// TODO test this. I wrote it but not sure if it works
+
 	public static int getExtendAgent(byte[] b) {
+		bb = ByteBuffer.wrap(b);	
+		assert(bb.get(2) == RELAY_CELL);
+		assert(b.length >= TorCellConverter.CELL_HEADER_SIZE);
+		assert(bb.get(13) == EXTEND_RELAY_CMD);
+		bb.clear();
+
 		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
-		String agent = httpReqArrAgentID.toString().split("\0")[1];
+		String agent = new String(httpReqArrAgentID).split("\0")[1];
 		int agentID = Integer.parseInt(agent);
 		return agentID;
 	}
-	
-	// TODO test this. I wrote it but not sure if it works
+
 	public static short getStreamID(byte[] b) {
 		ByteBuffer bb = ByteBuffer.wrap(b);
-		return (short) ((bb.getShort(RELAY_CELL) >> 8) & 0xFF);		// deal with unsigned short
+		assert(b.length >= TorCellConverter.CELL_HEADER_SIZE);
+		assert(bb.getShort(3) == RELAY_CELL);
+		short ret = (short) ((bb.getShort(3) >> 8) & 0xFF);
+	
+		bb.clear();
+		return ret;		// deal with unsigned short
 	}
 	
 	public static byte[] updateCID(byte[] b, int newCID) {
@@ -194,6 +207,11 @@ public class TorCellConverter {
 	
 	public static int getOpener(byte[] b) {
 		bb = ByteBuffer.wrap(b);
+		
+		// check if it is one of the open commands
+		assert((bb.get(2) == (byte) 5) || (bb.get(2) == (byte) 6) || (bb.get(2) == (byte) 7));
+		assert(b.length >= TorCellConverter.CELL_HEADER_SIZE);
+		
 		int opener = bb.getInt(3);
 		bb.clear();
 		return opener;
@@ -201,6 +219,11 @@ public class TorCellConverter {
 	
 	public static int getOpenee(byte[] b) {
 		bb = ByteBuffer.wrap(b);
+		
+		// check if it is one of the open commands
+		assert((bb.get(2) == (byte) 5) || (bb.get(2) == (byte) 6) || (bb.get(2) == (byte) 7));
+		assert(b.length >= TorCellConverter.CELL_HEADER_SIZE);
+
 		int opener = bb.getInt(7);
 		bb.clear();
 		return opener;

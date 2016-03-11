@@ -3,6 +3,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -149,7 +150,6 @@ public class TorRouter {
 		
 		public void run() {
 			while (LISTENING) {
-				
 				BufferedReader in = null;
 				char[] next_cell = new char[PACKAGE_SIZE];
 				try {
@@ -161,22 +161,55 @@ public class TorRouter {
 				
 				// Read the next 512 bytes (one tor cell)
 				int read = 0;
-				while (read < PACKAGE_SIZE) {
+				boolean none = false;
+				while (read < PACKAGE_SIZE && read != -1 && !none) {
 					try {
-						in.read(next_cell,read,PACKAGE_SIZE - read);
+						read = in.read(next_cell,read,PACKAGE_SIZE - read);
+						
+						// just in case if this is eof
+						int wait = 0;
+						while (!in.ready() && wait < 5) {
+							Thread.sleep(20);
+							wait++;
+						}
+						none = wait==5 ? true : false;
 					} catch (IOException e) {
 						System.out.println("Error when reading from buffered");
+					} catch (InterruptedException e) {
+						e.printStackTrace();
 					}
 				}
-				
+
 				// pass next_cell into TorCellConverter and find out what the command was
-				byte[] bytes = next_cell.toString().getBytes();
-				
-				assert(bytes.length == PACKAGE_SIZE); // MAKE SURE CONVERSION KEEPS IT AT PACKAGE_SIZE
-				
+				byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
+				try {
+					bytes = new String(next_cell).getBytes("UTF-8");
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}
+				assert(bytes.length <= PACKAGE_SIZE); // MAKE SURE CONVERSION KEEPS IT AT PACKAGE_SIZE
+
+				/* ************** For class only debugging******************* */
+//				ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_HEADER_SIZE);
+//				bb.putShort((short) 10);
+//				bb.put((byte) 3);
+//				bb.putShort((short) 1);
+//				bb.putShort((short) 0);			// 0x000 in header
+//				bb.putInt(0);					// digest
+//				bb.putShort((short) bytes.length);
+//				bb.put((byte) 6);
+//				byte[] header = bb.array();
+//				bb.clear();
+//				byte[] temp = bytes;
+//				
+//		        bytes = new byte[TorCellConverter.CELL_LENGTH];
+//		        System.arraycopy(header, 0, bytes, 0, header.length);
+//		        System.arraycopy(temp, 0, bytes, header.length, TorCellConverter.MAX_DATA_SIZE);
+				/* ********************************* */
+		        
 				String command = TorCellConverter.getCellType(bytes);
 				int cid = TorCellConverter.getCircuitId(bytes);
-				
+
 				// Do something depending on the command
 				switch (command) {
 					case "open":
@@ -352,7 +385,7 @@ public class TorRouter {
 		
 		// Handles the case where we receive a relay tor packet
 		private void handleRelayCase() {
-			String relay_type = TorCellConverter.getCellType(bytes);
+			String relay_type = TorCellConverter.getRelaySubcellType(bytes);
 			switch (relay_type) {
 				case "begin":
 					relayBegin();
@@ -372,7 +405,7 @@ public class TorRouter {
 		
 		// Handles creating a new TCP connection with destination
 		private void relayBegin() {
-			InetSocketAddress address = TorCellConverter.getDestination(bytes);
+			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
 			Socket toDestination = null;
 			try {
 				toDestination = new Socket(address.getAddress(), address.getPort());
