@@ -63,33 +63,14 @@ public class Tor61ProxyServer {
             
             out.write(TorCellConverter.getOpenCell(CID, 0, TOR_SERVICE_DATA));
             out.flush();
-            System.out.println("Proxy sent open cell");
             // Set Timer To 10 Minutes
             // If header is not processed within 5 seconds, assume client is dead
 			TOR_SOCKET.setSoTimeout(5 * 1000);
 
 			// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
 			long startTime = System.currentTimeMillis();
-			
-            System.out.println("Proxy waiting for test opened cell");
-
-            /*
-			while (!in.ready() && System.currentTimeMillis()-startTime <= 5 * 1000)
-				continue;
-            System.out.println("Proxy received something");
-
-			ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
-            System.out.println("Proxy about to read cell");
-
-			for (String line = in.readLine(); line != ""; line = in.readLine()) {
-				System.out.println(1);
-				bb.put(line.getBytes());
-			}
-			*/
-            ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.CELL_LENGTH);
-			
-			//////////
-         // Read the next 512 bytes (one tor cell)
+						
+			// Read the next 512 bytes (one tor cell)
     		char[] next_cell = new char[512];
 
 			int read = 0;
@@ -101,7 +82,7 @@ public class Tor61ProxyServer {
 					// just in case if this is eof
 					int wait = 0;
 					while (!in.ready() && wait < 5) {
-						Thread.sleep(20);
+						Thread.sleep(10);
 						wait++;
 					}
 					none = wait==5 ? true : false;
@@ -118,28 +99,20 @@ public class Tor61ProxyServer {
 				data = new String(next_cell).getBytes("UTF-8");
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
-			}
-			/////////
-			
+			}			
 			
 			TOR_SOCKET.setSoTimeout(0);
 
-			System.out.println("Proxy finished reading. About to check if the message was opened");
-
 			if (TorCellConverter.getCellType(data).equals("opened")) {
-				System.out.println("Proxy about to send create cell");
 				out.write(TorCellConverter.getCreateCell(data));
-				System.out.println("Proxy sent create cell");
 
 				startTime = System.currentTimeMillis();
 				// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
-				System.out.println("Proxy waiting for created cell");
 
 				TOR_SOCKET.setSoTimeout(5000);
 
 				while (!in.ready() && System.currentTimeMillis()-startTime <= 5 * 1000)
 					TimeUnit.MICROSECONDS.sleep(100);
-				
 
 				//Read the next 512 bytes (one tor cell)
 	    		next_cell = new char[512];
@@ -153,7 +126,7 @@ public class Tor61ProxyServer {
 						// just in case if this is eof
 						int wait = 0;
 						while (!in.ready() && wait < 5) {
-							Thread.sleep(20);
+							Thread.sleep(10);
 							wait++;
 						}
 						none = wait==5 ? true : false;
@@ -170,10 +143,8 @@ public class Tor61ProxyServer {
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 				}
-				System.out.println("Proxy received something");
 				TOR_SOCKET.setSoTimeout(0);
 
-				System.out.println("Proxy checking if its a created cell");
 
 				if (!TorCellConverter.getCellType(data).equals("created")) {
 					throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
@@ -191,47 +162,34 @@ public class Tor61ProxyServer {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-        System.out.println("Proxy finished the server thing!");
 	}
 
 	// Start up proxy service on designated port
 	// Return true if successfully started, and false otherwise
     public boolean start() {
-		System.out.println("Server: " + SERVER);
-
-    	System.out.println("Proxy start called");
 		if (!LISTENING && SERVER == null) {
-	    	System.out.println("Proxy in if statement");
-
 			LISTENING = true;
 			SERVER = new ProxyServerThread();
 			SERVER.start();
-			System.out.println("Server: " + SERVER);
 			return true;
 		} else {
-	    	System.out.println("Proxy in else statement");
-
 			System.out.println("PROXY SERVER IS ALREADY RUNNING ON PORT: " + PROXY_PORT);
 			return false;
 		}
     }
 
     // Returns true when Server successfully terminates and false otherwise
-    // Ideally, the Server should terminate within the next 20 seconds
+    // Ideally, the Server should terminate within the next 10 seconds
     public boolean quit() {
-    	System.out.println("Proxy quit called");
-
     	LISTENING = false;
-    	System.out.println("Proxy Server is Terminating. Please note that this operation can take up to 20 seconds");
+    	System.out.println("Proxy Server is Terminating. Please note that this operation can take up to 10 seconds");
     	try {
     		SERVER.join();
-    		System.out.println("YAY WE JOINED");
     	} catch (InterruptedException e) {
     		e.printStackTrace();
     		System.out.println("Interrupted when trying to quit in Proxy Server");
     		return false;
     	}
-    	System.out.println("Test done quitting");
     	return true;
     }
 
@@ -242,7 +200,6 @@ public class Tor61ProxyServer {
      * @throws Exception 
      */
     public boolean extend(Entry e) throws Exception {    
-    	System.out.println("Proxy extend method called");
     	DataOutputStream out = new DataOutputStream(TOR_SOCKET.getOutputStream());
         BufferedReader in = new BufferedReader(new InputStreamReader(TOR_SOCKET.getInputStream()));
 
@@ -254,7 +211,6 @@ public class Tor61ProxyServer {
         bb.putInt(e.serviceData);
         String extendData = bb.toString();
         bb.clear();
-    	System.out.println("Proxy about to send extend cell");
 
         ArrayList<byte[]> relayCells = TorCellConverter.getRelayCells("extend", CID, (short) 0, extendData);
         if (relayCells.size() != 1)
@@ -262,14 +218,11 @@ public class Tor61ProxyServer {
         out.write(relayCells.get(0));
 
         out.flush();
-    	System.out.println("Proxy sent extend cell");
 
 		TOR_SOCKET.setSoTimeout(5 * 1000);
 
 		// Read the next 512 bytes (one tor cell)
 		char[] next_cell = new char[512];
-
-    	System.out.println("Proxy preparing to read");
 
 		int read = 0;
 		boolean none = false;
@@ -280,7 +233,7 @@ public class Tor61ProxyServer {
 				// just in case if this is eof
 				int wait = 0;
 				while (!in.ready() && wait < 5) {
-					Thread.sleep(20);
+					Thread.sleep(10);
 					wait++;
 				}
 				none = wait==5 ? true : false;
@@ -290,8 +243,6 @@ public class Tor61ProxyServer {
 				e2.printStackTrace();
 			}
 		}
-    	System.out.println("Proxy finished reading");
-
 
 		// pass next_cell into TorCellConverter and find out what the command was
 		byte[] data = new byte[TorCellConverter.CELL_LENGTH];
@@ -300,11 +251,8 @@ public class Tor61ProxyServer {
 		} catch (UnsupportedEncodingException e2) {
 			e2.printStackTrace();
 		}
-    	System.out.println("Proxy checking to see if received cell was extended");
 
 		if (TorCellConverter.getRelaySubcellType(data).equals("extended")) {
-	    	System.out.println("Proxy got extended! Proxy extend method success!");
-
 			return true;
 		}
     	return false;
@@ -332,9 +280,9 @@ public class Tor61ProxyServer {
 			}
 
 			while (LISTENING) {
-				// Set timeout to be 20 seconds
+				// Set timeout to be 10 seconds
 				try {
-					serverSocket.setSoTimeout(20000);
+					serverSocket.setSoTimeout(10000);
 					Socket newClient = serverSocket.accept();
 					
 					short new_stream_id = getStreamID();
