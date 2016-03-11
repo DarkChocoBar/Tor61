@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -23,7 +24,7 @@ public class Tor61ProxyServer {
 	private DataOutputStream TOR_OUT_STREAM;
 	private int TOR_SERVICE_DATA;
 	private short CID;
-	public static Map<Short,Socket> STREAMS;
+	public static Map<Short,UnpackOutputStream> STREAMS;
 	
 	// Set proxy and tor ports
 	public Tor61ProxyServer(int proxy_port, int tor_port, InetAddress address, int service_data) {
