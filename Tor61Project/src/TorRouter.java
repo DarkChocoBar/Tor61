@@ -488,6 +488,7 @@ public class TorRouter {
 				// create a new socket
 				try {
 					dest_socket = new Socket(address.getAddress(), address.getPort());
+					dest_stream = new DataOutputStream(dest_socket.getOutputStream());
 				} catch (IOException e) {
 					List<byte[]> bytes_list = TorCellConverter.getRelayCells("extend failed", cid, stream_id, "");
 					for (byte[] bs: bytes_list) {

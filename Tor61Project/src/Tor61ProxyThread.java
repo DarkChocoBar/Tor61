@@ -1,102 +1,99 @@
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.util.ArrayList;
 
-/**
-
-This currently sends all traffic directly to the destination
-Tor_port is provided, but is never used
-We must packaged all http requests into TOR packages, and send to Tor_port
-
-**/
-
-//TODO 
-/**
- * 
- * 	Current problem is: 1 Tor_Socket
-	Everyone is writing to Tor_Socket, and reading from Tor_Socket
-	ProxyThread should only get PackOutputStream, and Buffer In from client
-	Reads from clients, and writes to proxy thread
-	Proxy server will do all reading from tor and writing to clients
-	
-	What we need is a table of ‘client’ ports
-	ONLY 1 THREAD READS FROM TOR_SOCKET
-	It determines which ‘client’ port gets the data
- *
- */
-
 
 public class Tor61ProxyThread extends Thread {
 	private PackOutputStream TOR_OUT_STREAM;
-    private Socket socket = null;
-    private static final int BUFFER_SIZE = 32768;
+    private Socket SOCKET = null;
+    private short CID;
+    private short STREAM_ID;
     
     // Set socket and tor_port number
-    public Tor61ProxyThread(Socket socket, int proxy_port, PackOutputStream stream) {
-        this.socket = socket;
+    public Tor61ProxyThread(Socket socket, int proxy_port, PackOutputStream stream, short cid, short stream_id) {
+        this.SOCKET = socket;
         this.TOR_OUT_STREAM = stream;
+        this.CID = cid;
+        this.STREAM_ID = stream_id;
     }
 
     public void run() {
-        //get input from user
-        //send request to server
-        //get response from server
-        //send response to user
 
         try {
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            DataOutputStream client_out = new DataOutputStream(SOCKET.getOutputStream());
+            BufferedReader in = new BufferedReader(new InputStreamReader(SOCKET.getInputStream()));
 
             // Set Timer To 10 Minutes
             // If header is not processed within 10 minutes, assume client is dead
-         	socket.setSoTimeout(10 * 1000);
+            SOCKET.setSoTimeout(10 * 1000);
             
             ArrayList<String> header = processRequestHeader(in);
             
             if (header.isEmpty()) {
-            	socket.close();
+            	SOCKET.close();
             }
             
             // Kill Timer
-         	socket.setSoTimeout(0);
+            SOCKET.setSoTimeout(0);
          			
             String get = header.get(0).trim();            
             String request = get.split("\\s+")[0];
                         
             System.out.println(get);
+            
+            String host_ip = getHostLine(header);
+            int port = getPort(get, host_ip);
+            String host = getHost(host_ip);
 
-			// Send Server Request
-			Socket server = null;
             try {
 				if (request.toLowerCase().equals("connect")) {
 					// This is when we send a begin request if successful, send ok. else send bad gateway
 					try {
-						server = TOR_SOCKET;
-						out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
+						// TODO
+						// We need to send begin cell
+						// If begin success, write ok. else send bad gateway
+						String data = host + ":" + port + '\0';
+						for (byte[] bs: TorCellConverter.getRelayCells("begin", CID, STREAM_ID, data))
+							TOR_OUT_STREAM.write(bs);
+						
+						// Wait for connected reply up to 10 seconds
+						try {
+							SOCKET.setSoTimeout(10000);
+						
+						while (!Tor61ProxyServer.STREAMS.containsKey(STREAM_ID)) {
+							continue;
+						}
+						} catch (Socket) {
+							
+						}
+						
+						client_out.write("HTTP/1.0 200 OK\r\n\r\n".getBytes());
+						client_out.flush();
 					} catch (ConnectException e){
-						out.write("HTTP/1.0 502 Bad Gateway\r\n\r\n".getBytes());
+						client_out.write("HTTP/1.0 502 Bad Gateway\r\n\r\n".getBytes());
+						client_out.flush();
+						return;
 					}
-					out.flush();
 					
-					stream(in, out, server);
+					stream(in, TOR_OUT_STREAM);
 				} else {
-					// This is how we used to send HTTP request to server. We now want to use PackOutputStream
-					/*
-					server = TOR_SOCKET;
-					PrintWriter serverRequest = new PrintWriter(server.getOutputStream());
-
+					// Write HTTP request to tor router
+					
+					// THIS PART MAY BE EXTREMELY SLOW BECAUSE 512 BYTES PER HTTP REQUEST LINE
+					// TODO
+					/**
+					 * Maybe concat header into 1 byte[] then write whole byte to out stream
+					 */
 					for (String s: header) {
-						serverRequest.print(s + "\r\n");
+						TOR_OUT_STREAM.write((s + "\r\n").getBytes());
 					}
-					serverRequest.print("\r\n");
-					serverRequest.flush();
-					*/
+					TOR_OUT_STREAM.write("\r\n".getBytes());
+					TOR_OUT_STREAM.flush();
+
 
 					// We are no longer reading. This is someone else's job
 					/*
@@ -124,20 +121,29 @@ public class Tor61ProxyThread extends Thread {
 				}          
             } catch (Exception e) {
 				// Satisfy Client Request by terminating
-                out.writeBytes("");
+            	client_out.writeBytes("");
             }
-                        
-            if (out != null) {
-				out.close();
+            
+            // Send tor router relay end cell
+            for (byte[] bs: TorCellConverter.getRelayCells("end", CID, STREAM_ID, ""))
+            	TOR_OUT_STREAM.write(bs);
+            
+            // Close stream
+            assert(Tor61ProxyServer.STREAMS.containsKey(STREAM_ID));
+            Socket s = Tor61ProxyServer.STREAMS.get(STREAM_ID);
+            if (s != null) {
+            	s.close();
+            }
+            Tor61ProxyServer.STREAMS.remove(STREAM_ID);
+            
+            if (client_out != null) {
+            	client_out.close();
 			}
 			if (in != null) {
 				in.close();
 			}
-			if (server != null) {
-				server.close();
-			}
-			if (socket != null) {
-				socket.close();
+			if (SOCKET != null) {
+				SOCKET.close();
 			}
 
         } catch (IOException e) {
@@ -147,28 +153,16 @@ public class Tor61ProxyThread extends Thread {
     }
 
     // Stream client and server input and output
-    private void stream(BufferedReader cin, DataOutputStream cout, Socket server) {
-    	try {
-    		DataOutputStream sout = new DataOutputStream(server.getOutputStream());
-        	BufferedReader sin = new BufferedReader(new InputStreamReader(server.getInputStream()));
-        	
-        	Boolean done = false;
-        	
-        	Thread cs = new StreamThread(cin, sout, done);
-        	Thread sc = new StreamThread(sin, cout, done);
+    private void stream(BufferedReader cin, PackOutputStream cout) {
+    	try {        	
+        	Thread cs = new StreamThread(cin, cout);
         	
         	cs.run();
-        	sc.run();
         	
         	cs.join();
-        	sc.join();
         	
-        	if (sout != null)
-        		sout.close();
-        	if (sin != null)
-        		sin.close();
         } catch (Exception e) {
-        	
+        	System.out.println("Some error in stream method in proxy thread");
         }
     }
     
@@ -202,28 +196,58 @@ public class Tor61ProxyThread extends Thread {
 		return list;
 	}
 	
+	private static int getPort(String get, String host) {
+		int port = get.contains("https://") ? 443 : 80;
+		if (host.contains(":")) {
+			try {
+				port = Integer.parseInt(host.split(":")[1]);
+			} catch (Exception e) {
+				return -1;
+			}
+		}
+		return port;
+	}
+	
+	private static String getHost(String host) {
+		if (host.contains(":")) {
+			return host.split(":")[0].trim();
+		}
+		return host;
+	}
+	
+	private static String getHostLine(ArrayList<String> list) {
+		String ret = "";
+		for (String s : list) {
+			if (s.length() >= 6 && s.substring(0, 6).toLowerCase().equals("host: ")) {
+				ret = s.substring(6, s.length()).trim();
+				break;
+			}
+		}
+		return ret;
+	}
+	
 	public class StreamThread extends Thread {
 		private BufferedReader in;
-		private DataOutputStream out;
-		private Boolean done;
+		private PackOutputStream out;
 		
-		public StreamThread(BufferedReader in, DataOutputStream out, Boolean done) {
+		public StreamThread(BufferedReader in, PackOutputStream out) {
 			this.in = in;
 			this.out = out;
-			this.done = done;
 		}
 		
 		public void run() {
-			while (!done) {
+			while (!Tor61ProxyServer.STREAMS.containsKey(STREAM_ID)) {
 				try {
 					String next;
 					if ((next = in.readLine()) != null)
 						out.write(next.getBytes());
-					else
-						done = true;
+					else {
+						out.flush();
+						return;
+					}
 					out.flush();
 				} catch (IOException e) {
-					done = true;
+					System.out.println("Some error in StreamThread");
 				}
 			}
 		}
