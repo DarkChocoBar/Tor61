@@ -290,7 +290,7 @@ public class Tor61ProxyServer {
 					new TorInputThread(new_stream_id, output_stream).start();
 
 					// Each new thread listens to client, and sends all packets to tor router
-					new Tor61ProxyThread(newClient, PROXY_PORT, new PackOutputStream(TOR_OUT_STREAM,CID,new_stream_id),CID,new_stream_id).start();
+					new Tor61ProxyThread(newClient, new PackOutputStream(TOR_OUT_STREAM,CID,new_stream_id),CID,new_stream_id).start();
 					
 				} catch (SocketException e) {
 					System.out.println("SocketException when trying to listen to Proxy Server");

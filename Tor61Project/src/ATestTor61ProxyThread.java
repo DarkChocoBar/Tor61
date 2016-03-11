@@ -21,7 +21,7 @@ public class ATestTor61ProxyThread {
 		short cid = 4;
 		short stream_id = 5;
 		Socket s = new Socket("www.google.com", 8080);
-		Tor61ProxyThread tpt = new Tor61ProxyThread(s, proxy_port, out, cid, stream_id);
+		Tor61ProxyThread tpt = new Tor61ProxyThread(s, out, cid, stream_id);
 		tpt.start();
 	}
 	

@@ -14,7 +14,7 @@ public class Tor61ProxyThread extends Thread {
     private short STREAM_ID;
     
     // Set socket and tor_port number
-    public Tor61ProxyThread(Socket socket, int proxy_port, PackOutputStream stream, short cid, short stream_id) {
+    public Tor61ProxyThread(Socket socket, PackOutputStream stream, short cid, short stream_id) {
         this.SOCKET = socket;
         this.TOR_OUT_STREAM = stream;
         this.CID = cid;

@@ -1,4 +1,6 @@
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.List;
@@ -15,6 +17,15 @@ public class TorMain {
 	private static String ROUTER_STRING_NAME;
 	private static RegistrationAgent AGENT;
 	private static int CIRCUIT_SIZE = 4;
+	
+	public static PrintWriter writer;
+	static {
+		try {
+			writer = new PrintWriter("text.txt");
+		} catch (FileNotFoundException e) {
+			System.out.println("Could not find file");
+		}
+	}
 
 	public static void main(String[] args) {
 		verify(args);
