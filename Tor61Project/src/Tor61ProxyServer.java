@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -196,21 +195,17 @@ public class Tor61ProxyServer {
 				System.err.println("Could not listen on port: " + PROXY_PORT);
 				System.exit(1);
 			}
-			
-			// TODO
-			/**
-			 * Need to create a thread that listens to Tor_socket input stream
-			 * Depending on what the stream id is on the incoming packet,
-			 * write the the correct client socket in STREAMS
-			 */
-		
+
 			while (LISTENING) {
 				// Set timeout to be 20 seconds
 				try {
 					serverSocket.setSoTimeout(20000);
 					Socket newClient = serverSocket.accept();
-					short new_stream_id = getStreamID();
 					
+					short new_stream_id = getStreamID();
+					UnpackOutputStream output_stream = new UnpackOutputStream(new DataOutputStream(TOR_SOCKET.getOutputStream()));
+					new TorInputThread(new_stream_id, output_stream).start();
+
 					// Each new thread listens to client, and sends all packets to tor router
 					new Tor61ProxyThread(newClient, PROXY_PORT, new PackOutputStream(TOR_OUT_STREAM,CID,new_stream_id),CID,new_stream_id).start();
 					
@@ -238,5 +233,22 @@ public class Tor61ProxyServer {
 			stream_id = (short) (r.nextInt(Short.MAX_VALUE) + 1);
 		}
 		return stream_id;
+	}
+	
+	public class TorInputThread extends Thread {
+		private short stream_id;
+		private UnpackOutputStream stream;
+
+		public TorInputThread(short stream_id, UnpackOutputStream stream) {
+			this.stream_id = stream_id;
+			this.stream = stream;
+		}
+		
+		@Override
+		public void run() {			
+			if (!STREAMS.containsKey(stream_id)) {
+				STREAMS.put(stream_id, stream);
+			}
+		}
 	}
 }

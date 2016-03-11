@@ -14,7 +14,7 @@ import java.util.Arrays;
 public class PackOutputStream extends OutputStream {
 	private final byte RELAY_CMD = 3;
 	private final byte RELAY_DATA_CMD = 2;
-	
+
 	private DataOutputStream stream;
 	private short cid;
 	private short stream_id;
