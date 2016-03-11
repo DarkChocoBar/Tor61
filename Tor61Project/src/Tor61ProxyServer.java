@@ -8,6 +8,8 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -21,6 +23,7 @@ public class Tor61ProxyServer {
 	private DataOutputStream TOR_OUT_STREAM;
 	private int TOR_SERVICE_DATA;
 	private short CID;
+	public static Map<Short,Socket> STREAMS;
 	
 	// Set proxy and tor ports
 	public Tor61ProxyServer(int proxy_port, int tor_port, InetAddress address, int service_data) {
@@ -39,6 +42,7 @@ public class Tor61ProxyServer {
 			System.exit(1);
 		}
 		sendOpenAndCreateMessage();
+		STREAMS = new HashMap<Short,Socket>();
 	}
 	
 	/**
@@ -191,13 +195,24 @@ public class Tor61ProxyServer {
 				System.err.println("Could not listen on port: " + PROXY_PORT);
 				System.exit(1);
 			}
+			
+			// TODO
+			/**
+			 * Need to create a thread that listens to Tor_socket input stream
+			 * Depending on what the stream id is on the incoming packet,
+			 * write the the correct client socket in STREAMS
+			 */
 		
 			while (LISTENING) {
 				// Set timeout to be 20 seconds
 				try {
 					serverSocket.setSoTimeout(20000);
 					Socket newClient = serverSocket.accept();
-					new Tor61ProxyThread(newClient, PROXY_PORT, new PackOutputStream(TOR_OUT_STREAM,CID,(short)0)).start();
+					short new_stream_id = getStreamID();
+					
+					// Each new thread listens to client, and sends all packets to tor router
+					new Tor61ProxyThread(newClient, PROXY_PORT, new PackOutputStream(TOR_OUT_STREAM,CID,new_stream_id),CID,new_stream_id).start();
+					
 				} catch (SocketException e) {
 					System.out.println("SocketException when trying to listen to Proxy Server");
 					System.exit(1);
@@ -212,5 +227,15 @@ public class Tor61ProxyServer {
 				System.exit(1);
 			}
 		}
+	}
+	
+	// Finds an unused Stream ID
+	private short getStreamID() {
+		Random r = new Random();
+		short stream_id = (short) (r.nextInt(Short.MAX_VALUE) + 1);
+		while (STREAMS.containsKey(stream_id)) {
+			stream_id = (short) (r.nextInt(Short.MAX_VALUE) + 1);
+		}
+		return stream_id;
 	}
 }
