@@ -43,7 +43,7 @@ public class Tor61ProxyServer {
 			System.exit(1);
 		}
 		sendOpenAndCreateMessage();
-		STREAMS = new HashMap<Short,Socket>();
+		STREAMS = new HashMap<Short,UnpackOutputStream>();
 	}
 	
 	/**
