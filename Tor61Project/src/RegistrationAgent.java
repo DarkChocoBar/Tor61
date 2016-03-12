@@ -104,6 +104,30 @@ public class RegistrationAgent {
 		return REGISTERED_PORTS.containsKey(port);
 	}
 	
+	public boolean unregister(int tor_port) {
+		String[] input = new String[2];
+		input[0] = "u";
+		input[1] = "" + tor_port;
+
+		// Create new thread to handle each user command
+		Thread t = new Thread(new ThreadUserRequestHandler(main, input));
+		t.start();
+		try {
+			t.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+			return false;
+		}
+		int port = -1;
+		try {
+			port = Integer.parseInt(input[1]);
+		} catch (NumberFormatException e) {
+			e.printStackTrace();
+			return false;
+		}
+		return !REGISTERED_PORTS.containsKey(port);
+	}
+	
 	// Returns all IP address and Port numbers of Routers with specified Prefix
 	// Returns null if there was some sort of error fetching
 	public List<Entry> fetch(String prefix) {
