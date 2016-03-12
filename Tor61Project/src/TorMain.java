@@ -29,6 +29,8 @@ public class TorMain {
 
 	public static void main(String[] args) {
 		verify(args);
+		for (String s: args)
+			System.out.println(s);
 		
 		///////////////////////////// Start Tor Router/////////////////////////////////////////
 		
@@ -100,7 +102,8 @@ public class TorMain {
 		///////////////////////////// Done Finding Other Tor Routers ///////////////////////////
 
 		///////////////////////////// Start Proxy Server ///////////////////////////////////////
-		
+		System.out.println("About to start Proxy Server");
+
 		Tor61ProxyServer ps = new Tor61ProxyServer(PROXY_PORT, TOR_PORT, TOR_ADDRESS, serviceData);
 		if (ps.start())
 			System.out.println("Proxy Server Successfully Started");
@@ -180,7 +183,8 @@ public class TorMain {
 			if (INSTANCE_NUMBER <= 0 || INSTANCE_NUMBER > 9999)
 				terminate();
 				
-			if (PROXY_PORT < 1024 || PROXY_PORT > 49151)
+			//if (PROXY_PORT < 1024 || PROXY_PORT > 49151)
+			if (PROXY_PORT < 1024 || PROXY_PORT > 99999)
 				terminate();
 			
 			ROUTER_STRING_NAME = "Tor61Router-" + String.format("%04d",GROUP_NUMBER) + "-" +

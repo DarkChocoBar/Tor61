@@ -78,7 +78,7 @@ public class RegistrationAgent {
 	}
 	
 	// This thread handles all user input
-	public boolean register(int tor_port, long service_data, String name) {
+	public boolean register(int tor_port, int service_data, String name) {
 		String[] input = new String[4];
 		input[0] = "r";
 		input[1] = "" + tor_port;
