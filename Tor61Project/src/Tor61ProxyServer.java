@@ -38,6 +38,8 @@ public class Tor61ProxyServer {
 
 		try {
 			TOR_SOCKET = new Socket(TOR_ADDRESS, TOR_PORT);
+			System.out.println("Tor Port at: " + TOR_PORT);
+			System.out.println("Proxy Socket at: " + TOR_SOCKET.getLocalPort() + " connected to: " + TOR_SOCKET.getPort());
 			TOR_OUT_STREAM = new DataOutputStream(TOR_SOCKET.getOutputStream());
 		} catch (IOException e) {
 			System.out.println("Failed Creating a Socket with Tor Router at ip: " + TOR_ADDRESS + " and port: " + TOR_PORT);
@@ -228,6 +230,10 @@ public class Tor61ProxyServer {
         ArrayList<byte[]> relayCells = TorCellConverter.getRelayCells("extend", CID, (short) 0, extendData);
         if (relayCells.size() != 1)
         	throw new Exception("Tor61ProxyServer:extend failed with wrong Relay cells created");
+        
+        //System.out.println(TorCellConverter.getCellType(relayCells.get(0)));
+        //System.out.println(TorCellConverter.getRelaySubcellType(relayCells.get(0)));
+
         out.write(relayCells.get(0));
         out.flush();
 
@@ -285,7 +291,7 @@ public class Tor61ProxyServer {
 
 			try {
 				serverSocket = new ServerSocket(PROXY_PORT);
-				System.out.println("Proxy listening on " + InetAddress.getLocalHost().getHostAddress() + ":" + PROXY_PORT);
+				System.out.println("Proxy listening on " + PROXY_PORT);
 			} catch (IOException e) {
 				System.err.println("Could not listen on port: " + PROXY_PORT);
 				System.exit(1);

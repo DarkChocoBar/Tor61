@@ -69,7 +69,12 @@ public class TorMain {
 						System.exit(1);
 					}
 		///////////////////////////// Finished Unregistering //////////////////////////////////
-
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
 		///////////////////////////// Register Tor Router /////////////////////////////////////
 		
 		// Run agent, which registers our Tor Router with the well-known registration service
@@ -128,11 +133,11 @@ public class TorMain {
 		
 		// Extend Circuit CIRCUIT_SIZE times
 		int current_circuit_size = 0;
-		while (current_circuit_size < CIRCUIT_SIZE) {
+		while (current_circuit_size < 1) {
 			System.out.println("Attempting to Extend Circuit...");
 			// If number of entries = 3, choose a random index 0,1,2
 			Entry e = entries.get(r.nextInt(entries.size()));
-			System.out.println("Main extending to entry: " + e.ip);
+			System.out.println("Main extending to entry: " + e.ip+":"+e.port);
 			// If we failed to extend, try again with another random router
 			try {
 				if (!ps.extend(e)) {
