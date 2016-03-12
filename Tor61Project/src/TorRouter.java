@@ -22,6 +22,7 @@ import java.util.Random;
  *
  */
 public class TorRouter {
+	
 	private ServerSocket SOCKET;
 	private TorRouterThread ROUTER;
 	
@@ -107,10 +108,12 @@ public class TorRouter {
 				// Set timeout to be 20 seconds
 				try {
 					ROUTER_SOCKET.setSoTimeout(20000);
-					
+
 					Socket s = ROUTER_SOCKET.accept();
 					ROUTER_SOCKET.setSoTimeout(0); // Kill the timer
 					
+					System.out.println("Tor Accepted New Connection");
+
 					// Create new thread to handle receiving messages
 					Thread read_thread = new ReadThread(s);
 					read_thread.start();
@@ -150,17 +153,15 @@ public class TorRouter {
 		}
 		
 		public void run() {
+			InputStream in = null;
+			byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
+			try {
+				in = READ_SOCKET.getInputStream();
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.out.println("Error when creating new buffered reader in read thread");
+			}
 			while (LISTENING) {
-				System.out.println("Running read thread");
-				InputStream in = null;
-				byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
-				try {
-					in = READ_SOCKET.getInputStream();
-				} catch (IOException e) {
-					e.printStackTrace();
-					System.out.println("Error when creating new buffered reader in read thread");
-				}
-				
 				// Read the next 512 bytes (one tor cell)
 				int total_read = 0;
 				int read = 0;
@@ -169,7 +170,6 @@ public class TorRouter {
 					try {
 						read = in.read(bytes);
 						total_read += read;
-
 					} catch (IOException e) {
 						System.out.println("Error when reading from buffered");
 					}
@@ -199,7 +199,7 @@ public class TorRouter {
 		        
 				String command = TorCellConverter.getCellType(bytes);
 				int cid = TorCellConverter.getCircuitId(bytes);
-
+				System.out.println("Tor Command Received: "+command);
 				// Do something depending on the command
 				switch (command) {
 					case "open":
@@ -207,10 +207,26 @@ public class TorRouter {
 					case "relay":
 						new WriteThread(command, READ_SOCKET, cid, bytes).start();
 						break;
+					case "opened":
+						int openee_id = TorCellConverter.getOpenee(bytes);
+						OPENER.put(READ_SOCKET,new Opener(AGENT_ID,openee_id));
+						assert(!CONNECTIONS.containsKey(openee_id));
+						System.out.println("Tor Received Valid Opened Command");
+	
+						// Add new entry to CONNECTIONS with null value
+						CONNECTIONS.put(TorCellConverter.getOpenee(bytes), null);
+						break;
+						// Add new entry to ROUTER_TABLE with null value
+					case "created":
+						ROUTER_TABLE.put(new RouterTableKey(READ_SOCKET,cid), null);
+						System.out.println("Tor Received Valid Created Command");
+						break;
 					case "destroy":
 						destroyConnection(cid);
 						break;
 					default:
+						System.out.println("Command Was not recognized");
+						System.exit(1);
 						break;
 				}
 			}
@@ -322,9 +338,15 @@ public class TorRouter {
 					case "open":
 						try {
 							if (TorCellConverter.getOpenee(bytes) == AGENT_ID) {
+								System.out.println("Tor Received Valid Open Command");
+//TODO								// Add new connection to CONNECTIONS
 								OPENER.put(socket, new Opener(TorCellConverter.getOpener(bytes), AGENT_ID));
+								System.out.println("Tor Sending Opened Command");
+
 								out.write(TorCellConverter.getOpenedCell(bytes));
 								out.flush();
+								System.out.println("Tor Sent Opened Command");
+
 							} else {
 								System.out.println("AGENT_ID DID NOT MATCH IN OPEN COMMAND. OPEN FAILED");
 								System.out.println("Agent: " + TorCellConverter.getOpenee(bytes));
@@ -340,36 +362,34 @@ public class TorRouter {
 							System.out.println("Error when sending opened reply in write thread");
 						}
 						break;
-					case "opened":
-						int openee_id = TorCellConverter.getOpenee(bytes);
-						assert(!CONNECTIONS.containsKey(openee_id));
-						
-						// Add new entry to CONNECTIONS with null value
-						CONNECTIONS.put(openee_id, null);
-						break;
 					case "create":
+
 						RouterTableKey key = new RouterTableKey(socket,cid);
 						// If this cid is being used, reply with Create Cell Failed
 						if (ROUTER_TABLE.containsKey(key)) {
 							try {
+								System.out.println("Tor Received Invalid Create Command");
+
 								out.write(TorCellConverter.getCreateFailCell((short)cid));
+								System.out.println("Tor Sending Create Failed Command");
+
 							} catch (IOException e) {
 								System.out.println("Error when sending create fail reply in write thread");
 							}
 						// Proceed to add the circuit to our router table
 						} else {
+							System.out.println("Tor Received Create Command");
+
 							ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
 							try {
 								out.write(TorCellConverter.getCreatedCell((short)cid));
+								System.out.println("Tor Sent Created Command");
+
 							} catch (IOException e) {
 								System.out.println("Error when sending created reply in write thread");
 							}
 						}
-						break;
-						// Add new entry to ROUTER_TABLE with null value
-					case "created":
-						RouterTableKey newKey = new RouterTableKey(socket,cid);
-						ROUTER_TABLE.put(newKey, null);
+
 						break;
 					case "relay":
 						handleRelayCase();
@@ -383,18 +403,22 @@ public class TorRouter {
 		// Handles the case where we receive a relay tor packet
 		private void handleRelayCase() {
 			String relay_type = TorCellConverter.getRelaySubcellType(bytes);
+			System.out.println("Tor Received Relay " + relay_type);
+
 			switch (relay_type) {
 				case "begin":
 					relayBegin();
 					break;
 				case "data":
 					relayData();
+					break;
 				case "end":
 					if (STREAMS.containsKey(stream_key))
 						STREAMS.remove(stream_key);
 					break;
 				case "extend":
 					relayExtend();
+					break;
 				default:
 					throw new IllegalArgumentException("Invalid Relay Subcase in handleRelayCase: " + relay_type);
 			}
@@ -404,6 +428,7 @@ public class TorRouter {
 		private void relayBegin() {
 			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
 			Socket toDestination = null;
+			System.out.println("Tor trying to establish connection");
 			try {
 				toDestination = new Socket(address.getAddress(), address.getPort());
 			} catch (IOException e) {
@@ -432,6 +457,8 @@ public class TorRouter {
 				System.out.println("Error when trying to add destination stream to router table in write thread");
 			}
 			
+			System.out.println("Tor successfully established connection");
+
 			RouterTableKey destToSourceKey = new RouterTableKey(toDestination, cid);
 			
 			if (!ROUTER_TABLE.containsKey(destToSourceKey)) {
@@ -441,6 +468,8 @@ public class TorRouter {
 				ROUTER_TABLE.put(destToSourceKey, destToSourceValue);
 			}
 			
+			System.out.println("Tor sending connected message");
+
 			// Reply with connected message
 			List<byte[]> bytes_list = TorCellConverter.getRelayCells("connected", cid, stream_id, "");
 			for (byte[] bs: bytes_list) {
@@ -452,6 +481,9 @@ public class TorRouter {
 					System.out.println("Error when sending 'connected' message back to source in write thread");
 				}
 			}
+			
+			System.out.println("Tor sent connected message");
+
 			
 			// Since this thread is supposed to terminate anyways, we will instead use it to forever read
 			// from this newly created socket and direct it to the begin source
@@ -504,8 +536,11 @@ public class TorRouter {
 			DataOutputStream dest_stream = null;
 			short newCid = -1;
 
+			System.out.println("Tor Checking to see if connection exists");
 			// If we already have a tcp connection to destination, use it
 			if (CONNECTIONS.containsKey(agent_id)) {
+				System.out.println("Tor Found Existing connection");
+
 				// Retreive existing socket
 				dest_socket = CONNECTIONS.get(agent_id);
 				try {
@@ -515,9 +550,13 @@ public class TorRouter {
 					e.printStackTrace();
 					System.out.println("Error when creating new DataOutputStream to an existing socket in relay extend in write thread");
 				}
-//TODO
+
 			// Otherwise, create a new tcp connection and do open protocol
 			} else {
+				System.out.println("Tor did not find existing connection");
+				System.out.println("Tor creating new connection");
+
+
 				// create a new socket
 				try {
 					dest_socket = new Socket();
@@ -537,8 +576,10 @@ public class TorRouter {
 						}
 					}
 				}
+				System.out.println("Tor Created new connection");
+
 				
-				System.out.println("Sending Open Packet");
+				System.out.println("Tor Sending Open Packet To Another Tor");
 
 				// send open packet
 				try {
@@ -551,8 +592,8 @@ public class TorRouter {
 						System.out.println("Error when sending extend failed because exception in send open cell relay extend in write thread");
 					}
 				}
-				System.out.println("Waiting for opened packet");
-
+				System.out.println("Tor Waiting for opened packet from Another Tor");
+//TODO
 				// wait until we receive a opened packet
 				// we will know if CONNECTIONS has a new entry: Agent_id, socket
 				// we will wait up to 10 seconds
