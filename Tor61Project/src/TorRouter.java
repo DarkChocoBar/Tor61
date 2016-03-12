@@ -22,7 +22,7 @@ import java.util.Random;
  *
  */
 public class TorRouter {
-	
+	public static int readers = 1;
 	private ServerSocket SOCKET;
 	private TorRouterThread ROUTER;
 	
@@ -161,6 +161,8 @@ public class TorRouter {
 				e.printStackTrace();
 				System.out.println("Error when creating new buffered reader in read thread");
 			}
+			int readid = readers;
+			readers++;
 			while (LISTENING) {
 				// Read the next 512 bytes (one tor cell)
 				int total_read = 0;
@@ -199,13 +201,13 @@ public class TorRouter {
 		        
 				String command = TorCellConverter.getCellType(bytes);
 				int cid = TorCellConverter.getCircuitId(bytes);
-				System.out.println("Tor Command Received: "+command);
+				System.out.println("Tor Reader: "+readid+" Received Command: "+command);
 				// Do something depending on the command
 				switch (command) {
 					case "open":
 					case "create":
 					case "relay":
-						new WriteThread(command, READ_SOCKET, cid, bytes).start();
+						new WriteThread(command, READ_SOCKET, cid, bytes,readid).start();
 						break;
 					case "opened":
 						int openee_id = TorCellConverter.getOpenee(bytes);
@@ -300,8 +302,10 @@ public class TorRouter {
 		private RouterTableKey routing_key;
 		private RouterTableKey stream_key;
 		private int agent_id;
+		
+		public int readid; // used for debugging
 
-		public WriteThread(String command, Socket s, int cid, byte[] bytes) {
+		public WriteThread(String command, Socket s, int cid, byte[] bytes,int readid) {
 			this.socket = s;
 			try {
 				out = new DataOutputStream(s.getOutputStream());
@@ -318,9 +322,11 @@ public class TorRouter {
 				this.agent_id = TorCellConverter.getExtendAgent(bytes);
 			} catch (ArrayIndexOutOfBoundsException e) {
 			}
+			this.readid=readid;
 		}
 		
 		public void run() {
+			System.out.print("Readid: " +readid+" ");
 			// If we are not the end of the circuit, forward to the next tor router
 			if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) != null) {
 				RouterTableValue value = ROUTER_TABLE.get(routing_key);
@@ -363,7 +369,6 @@ public class TorRouter {
 						}
 						break;
 					case "create":
-
 						RouterTableKey key = new RouterTableKey(socket,cid);
 						// If this cid is being used, reply with Create Cell Failed
 						if (ROUTER_TABLE.containsKey(key)) {
@@ -389,7 +394,6 @@ public class TorRouter {
 								System.out.println("Error when sending created reply in write thread");
 							}
 						}
-
 						break;
 					case "relay":
 						handleRelayCase();
