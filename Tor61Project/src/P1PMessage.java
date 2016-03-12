@@ -41,7 +41,7 @@ public class P1PMessage {
 
 		if (!isValidPort(input[1]))
 			return null;
-			
+
 		int port;
 		int serviceData;
 		try {
@@ -50,6 +50,7 @@ public class P1PMessage {
 		} catch (NumberFormatException e) {
 			return null;
 		}
+
 		byte[] serviceName = input[3].getBytes();
 		byte[] address = hostIP.getAddress();
 
@@ -328,7 +329,8 @@ public class P1PMessage {
 		try {
 			int port = Integer.parseInt(s);
 
-			if (port < 1024 || port > 49151)
+			//if (port < 1024 || port > 49151)
+			if (port < 1024 || port > 99999)
 				return false;
 		} catch (NumberFormatException e) {
 			return false;
