@@ -134,8 +134,9 @@ public class Tor61ProxyThread extends Thread {
             }
             
             // Send tor router relay end cell
-            for (byte[] bs: TorCellConverter.getRelayCells("end", CID, STREAM_ID, ""))
+            for (byte[] bs: TorCellConverter.getRelayCells("end", CID, STREAM_ID, "")) {
             	TOR_OUT_STREAM.write(bs);
+            }
             
             // Close stream
             assert(Tor61ProxyServer.STREAMS.containsKey(STREAM_ID));
@@ -178,8 +179,10 @@ public class Tor61ProxyThread extends Thread {
 		String temp;
 
 		while ((temp = br.readLine()) != null && !temp.equals("") && !temp.equals("\n")) {
+			System.out.println("Processing: " + temp);
 			header.add(temp);
 		}
+		System.out.println("Processing when exit: " + temp);
 
 		header = updateConnectionFieldandHttpVersion(header);
 				
