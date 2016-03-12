@@ -58,6 +58,17 @@ public class TorMain {
 		///////////////////////////// Initialize Agent ////////////////////////////////////////
 		AGENT = new RegistrationAgent();
 		///////////////////////////// Done Initializing Agent//////////////////////////////////
+		
+		///////////////////////////// Unregister Tor That may be alive from before ////////////
+		List<Entry> uentries = AGENT.fetch("Tor61Router-" + GROUP_NUMBER);
+		if (uentries != null)
+			if (!uentries.isEmpty())
+				for (Entry e: uentries)
+					if (!AGENT.unregister(e.port)) {
+						System.out.println("Main FAILED TO UNREGISTER");
+						System.exit(1);
+					}
+		///////////////////////////// Finished Unregistering //////////////////////////////////
 
 		///////////////////////////// Register Tor Router /////////////////////////////////////
 		
