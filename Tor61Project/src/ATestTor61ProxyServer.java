@@ -55,7 +55,7 @@ public class ATestTor61ProxyServer extends Thread{
 		
 		Entry e = null;
 		try {
-			e = new Entry(InetAddress.getLocalHost(),12345,888888);
+			e = new Entry(InetAddress.getLocalHost(),12345,88888888);
 		} catch (UnknownHostException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
