@@ -35,6 +35,7 @@ public class Tor61ProxyServer {
 			terminate();
 		SERVER = null;
 		TOR_SERVICE_DATA = service_data;
+
 		try {
 			TOR_SOCKET = new Socket(TOR_ADDRESS, TOR_PORT);
 			TOR_OUT_STREAM = new DataOutputStream(TOR_SOCKET.getOutputStream());
@@ -102,7 +103,6 @@ public class Tor61ProxyServer {
 			}			
 			
 			TOR_SOCKET.setSoTimeout(0);
-
 			if (TorCellConverter.getCellType(data).equals("opened")) {
 				out.write(TorCellConverter.getCreateCell(data));
 
@@ -150,6 +150,9 @@ public class Tor61ProxyServer {
 					throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
 							+ "Didn't receive created cell message");
 				}	
+			} else if (TorCellConverter.getCellType(data).equals("open failed")){
+				throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
+						+ "Received open failed");
 			} else {
 				throw new Exception("Tor61ProxyServer:sendOpenAndCreateMessage - "
 						+ "Didn't receive opened cell message");
@@ -159,8 +162,13 @@ public class Tor61ProxyServer {
 		} catch (IOException e) {
 			System.out.println("Error when sending open and create messages to Tor Router");
 			System.exit(1);
-		} catch (Exception e) {
+		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
+			System.exit(1);
+		} catch (Exception e) {
+			System.out.println("Error in Tor61Proxy Server");
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 
@@ -203,6 +211,8 @@ public class Tor61ProxyServer {
     	DataOutputStream out = new DataOutputStream(TOR_SOCKET.getOutputStream());
         BufferedReader in = new BufferedReader(new InputStreamReader(TOR_SOCKET.getInputStream()));
 
+        //TorCellConverter.getRelayCells expends an actual string like '199.123....:111\01234'
+        /*
         ByteBuffer bb = ByteBuffer.allocate(TorCellConverter.MAX_DATA_SIZE);
         bb.put(e.ip.getAddress());
         bb.put(":".getBytes());
@@ -211,12 +221,14 @@ public class Tor61ProxyServer {
         bb.putInt(e.serviceData);
         String extendData = bb.toString();
         bb.clear();
+        */
+
+        String extendData = e.ip + ":" + e.port + '\0' + TOR_SERVICE_DATA;
 
         ArrayList<byte[]> relayCells = TorCellConverter.getRelayCells("extend", CID, (short) 0, extendData);
         if (relayCells.size() != 1)
         	throw new Exception("Tor61ProxyServer:extend failed with wrong Relay cells created");
         out.write(relayCells.get(0));
-
         out.flush();
 
 		TOR_SOCKET.setSoTimeout(5 * 1000);
@@ -278,20 +290,19 @@ public class Tor61ProxyServer {
 				System.err.println("Could not listen on port: " + PROXY_PORT);
 				System.exit(1);
 			}
-
 			while (LISTENING) {
 				// Set timeout to be 10 seconds
 				try {
 					serverSocket.setSoTimeout(10000);
 					Socket newClient = serverSocket.accept();
-					
+
 					short new_stream_id = getStreamID();
 					UnpackOutputStream output_stream = new UnpackOutputStream(new DataOutputStream(TOR_SOCKET.getOutputStream()));
 					new TorInputThread(new_stream_id, output_stream).start();
 
 					// Each new thread listens to client, and sends all packets to tor router
 					new Tor61ProxyThread(newClient, new PackOutputStream(TOR_OUT_STREAM,CID,new_stream_id),CID,new_stream_id).start();
-					
+
 				} catch (SocketException e) {
 					System.out.println("SocketException when trying to listen to Proxy Server");
 					System.exit(1);
@@ -299,12 +310,14 @@ public class Tor61ProxyServer {
 					continue;
 				}
 			}
+
 			try {
 				serverSocket.close();
 			} catch (IOException e) {
 				System.out.println("IOException: Proxy No Longer Listening, but failed to close serverSocket");
 				System.exit(1);
 			}
+
 		}
 	}
 	

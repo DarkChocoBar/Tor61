@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
@@ -115,7 +116,7 @@ public class TorRouter {
 					read_thread.start();
 					
 				} catch (SocketException e) {
-					System.out.println("SocketException when Tor Router is trying to create a bew tcp connection");
+					System.out.println("SocketException when Tor Router is trying to create a new tcp connection");
 					System.exit(1);
 				} catch (IOException e) {
 					// Socket Timeout Exceptions are caught here
@@ -150,43 +151,31 @@ public class TorRouter {
 		
 		public void run() {
 			while (LISTENING) {
-				BufferedReader in = null;
-				char[] next_cell = new char[PACKAGE_SIZE];
+				InputStream in = null;
+				byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
 				try {
-					in = new BufferedReader(new InputStreamReader(READ_SOCKET.getInputStream()));
+					in = READ_SOCKET.getInputStream();
 				} catch (IOException e) {
 					e.printStackTrace();
 					System.out.println("Error when creating new buffered reader in read thread");
 				}
 				
 				// Read the next 512 bytes (one tor cell)
+				int total_read = 0;
 				int read = 0;
 				boolean none = false;
-				while (read < PACKAGE_SIZE && read != -1 && !none) {
+				while (total_read < PACKAGE_SIZE && read != -1 && !none) {
 					try {
-						read = in.read(next_cell,read,PACKAGE_SIZE - read);
-						
-						// just in case if this is eof
-						int wait = 0;
-						while (!in.ready() && wait < 5) {
-							Thread.sleep(20);
-							wait++;
-						}
-						none = wait==5 ? true : false;
+						read = in.read(bytes);
+						total_read += read;
+
 					} catch (IOException e) {
 						System.out.println("Error when reading from buffered");
-					} catch (InterruptedException e) {
-						e.printStackTrace();
 					}
 				}
 
 				// pass next_cell into TorCellConverter and find out what the command was
-				byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
-				try {
-					bytes = new String(next_cell).getBytes("UTF-8");
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
-				}
+
 				assert(bytes.length <= PACKAGE_SIZE); // MAKE SURE CONVERSION KEEPS IT AT PACKAGE_SIZE
 
 				/* ************** For class only debugging******************* */
@@ -216,6 +205,7 @@ public class TorRouter {
 					case "create":
 					case "relay":
 						new WriteThread(command, READ_SOCKET, cid, bytes).start();
+						break;
 					case "destroy":
 						destroyConnection(cid);
 						break;
@@ -307,8 +297,10 @@ public class TorRouter {
 			this.bytes = bytes;
 			this.routing_key = new RouterTableKey(socket, cid);
 			this.stream_key = new RouterTableKey(socket, stream_id);
-			this.agent_id = TorCellConverter.getExtendAgent(bytes);
-
+			try {
+				this.agent_id = TorCellConverter.getExtendAgent(bytes);
+			} catch (ArrayIndexOutOfBoundsException e) {
+			}
 		}
 		
 		public void run() {
@@ -331,11 +323,15 @@ public class TorRouter {
 							if (TorCellConverter.getOpenee(bytes) == AGENT_ID) {
 								OPENER.put(socket, new Opener(TorCellConverter.getOpener(bytes), AGENT_ID));
 								out.write(TorCellConverter.getOpenedCell(bytes));
+								out.flush();
 							} else {
+								System.out.println("AGENT_ID DID NOT MATCH IN OPEN COMMAND. OPEN FAILED");
+								System.out.println("Agent: " + TorCellConverter.getOpenee(bytes));
 								out.write(TorCellConverter.getOpenFailCell(bytes));
 							}
 						} catch (IOException e) {
 							try {
+								System.out.println("SOME KIND OF ERROR OCCURED WHEN PROCESSING OPEN COMMAND. OPEN FAILED");
 								out.write(TorCellConverter.getOpenFailCell(bytes));
 							} catch (IOException e2) {
 								System.out.println("Error whenn sending open failed reply in write thread");
@@ -498,13 +494,14 @@ public class TorRouter {
 		
 		// Handles dealing with a relayExtend command
 		private void relayExtend() {
+
 			assert(ROUTER_TABLE.containsKey(routing_key));
 			assert(ROUTER_TABLE.get(routing_key) == null);
 			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
 			Socket dest_socket = null;
 			DataOutputStream dest_stream = null;
 			short newCid = getNewCid(dest_socket);
-			
+
 			// If we already have a tcp connection to destination, use it
 			if (CONNECTIONS.containsKey(agent_id)) {
 				// Retreive existing socket
@@ -534,6 +531,7 @@ public class TorRouter {
 						}
 					}
 				}
+
 				// send open packet
 				try {
 					dest_stream.write(TorCellConverter.getOpenCell(newCid, AGENT_ID, agent_id));

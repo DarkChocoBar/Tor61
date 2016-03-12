@@ -94,12 +94,12 @@ public class TorCellConverter {
 	}
 	
 	public static byte[] getOpenCell(short circuit_id, int opener, int opened) {
-		return OpenCellHelper(circuit_id, OPEN_CELL, opener, opened);
+		return OpenCellHelper((short)0, OPEN_CELL, opener, opened);
 	}
 	
 	public static byte[] getOpenedCell(byte[] b) {
 		bb = ByteBuffer.wrap(b);
-		byte[] ret = OpenCellHelper(bb.getShort(0), OPENED_CELL, bb.getInt(3), bb.getInt(7));
+		byte[] ret = OpenCellHelper((short)0, OPENED_CELL, bb.getInt(3), bb.getInt(7));
 		bb.clear();
 		return ret;
 	}
@@ -168,8 +168,7 @@ public class TorCellConverter {
 		bb.clear();
 
 		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
-		byte[] httpReqArr = httpReqArrAgentID.toString().split("\0")[0].getBytes();
-		String httpReq = new String(httpReqArr);
+		String httpReq = new String(httpReqArrAgentID).split("\0")[0];
 		String host = httpReq.split(":")[0];
 		int port = Integer.parseInt(httpReq.split(":")[1]);
 		return new InetSocketAddress(host, port);

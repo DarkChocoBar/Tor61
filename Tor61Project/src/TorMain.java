@@ -29,8 +29,6 @@ public class TorMain {
 
 	public static void main(String[] args) {
 		verify(args);
-		for (String s: args)
-			System.out.println(s);
 		
 		///////////////////////////// Start Tor Router/////////////////////////////////////////
 		
@@ -123,7 +121,7 @@ public class TorMain {
 			System.out.println("Attempting to Extend Circuit...");
 			// If number of entries = 3, choose a random index 0,1,2
 			Entry e = entries.get(r.nextInt(entries.size()));
-			
+			System.out.println("Main extending to entry: " + e.ip);
 			// If we failed to extend, try again with another random router
 			try {
 				if (!ps.extend(e)) {
