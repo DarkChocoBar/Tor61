@@ -63,7 +63,7 @@ public class ATestTor61ProxyThread {
 		System.out.println("Main confirmed TorAccepter accepted");
 
 		
-		PackOutputStream to_tor = new PackOutputStream(new DataOutputStream(tor.getOutputStream()), (short) 3, (short) 2);
+		PackOutputStream to_tor = new PackOutputStream(new DataOutputStream(tor_thing.getOutputStream()), (short) 3, (short) 2);
 		
 		short cid = 4;
 		short stream_id = 5;
@@ -113,17 +113,6 @@ public class ATestTor61ProxyThread {
 		System.out.println("Main done waiting");
 
 		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		Thread.sleep(1000);
-
-		System.out.println("Trying again");
-		out.flush();
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.write("GET / HTTP/1.1 \r\nHost: www.example.com\r\nConnection: close\r\n\r\n".getBytes());
-		out.flush();
 
 		System.out.println("Main sent http request");
 		
@@ -182,12 +171,9 @@ class Streamer extends Thread {
 		System.out.println("Running Stream thread");
 		while (!ATestTor61ProxyThread.done) {
 			try {
-				String next;
-				if ((next = in.readLine()) != null) {
-					System.out.println("EndServer: " + next);
-					out.write(next.getBytes());
-				} 
+					System.out.println(in.readLine());
 			} catch (IOException e) {
+				e.printStackTrace();
 				System.out.println("Some error in StreamThread");
 			}
 		}

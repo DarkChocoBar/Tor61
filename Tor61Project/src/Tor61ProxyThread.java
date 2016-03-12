@@ -179,10 +179,8 @@ public class Tor61ProxyThread extends Thread {
 		String temp;
 
 		while ((temp = br.readLine()) != null && !temp.equals("") && !temp.equals("\n")) {
-			System.out.println("Processing: " + temp);
 			header.add(temp);
 		}
-		System.out.println("Processing when exit: " + temp);
 
 		header = updateConnectionFieldandHttpVersion(header);
 				
