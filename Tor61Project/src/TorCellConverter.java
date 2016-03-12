@@ -41,7 +41,7 @@ public class TorCellConverter {
 	}
 
 	public static byte[] getCreateCell(short circuit_id) {
-		return CreateDestoryCellHelper(circuit_id, CREATED_CELL);
+		return CreateDestoryCellHelper(circuit_id, CREATE_CELL);
 	}
 	
 	public static byte[] getCreatedCell(short circuit_id) {
