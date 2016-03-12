@@ -13,11 +13,13 @@ public class ATestTor61ProxyServer extends Thread{
 	public static ServerSocket server = null;
 	public static Socket tor_socket = null;
 	public static Tor61ProxyServer ps = null;
+	public static int anyport = 0;
 	
 	public static void main (String[] args) {
 		ATestTor61ProxyServer t = new ATestTor61ProxyServer();
 		try {
-			server = new ServerSocket(22222);
+			server = new ServerSocket(0);
+			anyport = server.getLocalPort();
 			ServerThread st = new ServerThread(server);
 			st.start();
 			System.out.println("Started ServerThread");
@@ -36,7 +38,7 @@ public class ATestTor61ProxyServer extends Thread{
 	
 	public void run() {
 		try {
-			ps = new Tor61ProxyServer(10000,22222,InetAddress.getLocalHost(),123456);
+			ps = new Tor61ProxyServer(10000,anyport,InetAddress.getLocalHost(),123456);
 		} catch (UnknownHostException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();

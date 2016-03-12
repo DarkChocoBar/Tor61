@@ -299,7 +299,7 @@ public class RegistrationAgent {
 				while (true) {
 					try {
 						int curr_sequence = SEQUENCE;
-						byte[] send = P1PMessage.getRegRequest(data,curr_sequence,SERVICE_HOST);
+						byte[] send = P1PMessage.getRegRequest(data,curr_sequence,THIS_HOST);
 						byte[] receive = new byte[DATA_BUFFER_SIZE];
 						
 						// Invalid inputs

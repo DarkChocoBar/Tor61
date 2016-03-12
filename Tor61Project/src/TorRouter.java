@@ -151,6 +151,7 @@ public class TorRouter {
 		
 		public void run() {
 			while (LISTENING) {
+				System.out.println("Running read thread");
 				InputStream in = null;
 				byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
 				try {
@@ -213,7 +214,7 @@ public class TorRouter {
 						break;
 				}
 			}
-			
+			System.out.println("Preparing to quit read thread");
 			// Being here means that we are no longer LISTENING, and we want to quit
 			prepareToQuit();
 			
@@ -498,9 +499,10 @@ public class TorRouter {
 			assert(ROUTER_TABLE.containsKey(routing_key));
 			assert(ROUTER_TABLE.get(routing_key) == null);
 			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
+
 			Socket dest_socket = null;
 			DataOutputStream dest_stream = null;
-			short newCid = getNewCid(dest_socket);
+			short newCid = -1;
 
 			// If we already have a tcp connection to destination, use it
 			if (CONNECTIONS.containsKey(agent_id)) {
@@ -508,18 +510,22 @@ public class TorRouter {
 				dest_socket = CONNECTIONS.get(agent_id);
 				try {
 					dest_stream = new DataOutputStream(dest_socket.getOutputStream());
+					newCid = getNewCid(dest_socket);
 				} catch (IOException e) {
 					e.printStackTrace();
 					System.out.println("Error when creating new DataOutputStream to an existing socket in relay extend in write thread");
 				}
-
+//TODO
 			// Otherwise, create a new tcp connection and do open protocol
 			} else {
 				// create a new socket
 				try {
-					dest_socket = new Socket(address.getAddress(), address.getPort());
+					dest_socket = new Socket();
+					dest_socket.connect(address);
 					dest_stream = new DataOutputStream(dest_socket.getOutputStream());
+					newCid = getNewCid(dest_socket);
 				} catch (IOException e) {
+					e.printStackTrace();
 					List<byte[]> bytes_list = TorCellConverter.getRelayCells("extend failed", cid, stream_id, "");
 					for (byte[] bs: bytes_list) {
 						try {
@@ -531,6 +537,8 @@ public class TorRouter {
 						}
 					}
 				}
+				
+				System.out.println("Sending Open Packet");
 
 				// send open packet
 				try {
@@ -543,7 +551,8 @@ public class TorRouter {
 						System.out.println("Error when sending extend failed because exception in send open cell relay extend in write thread");
 					}
 				}
-				
+				System.out.println("Waiting for opened packet");
+
 				// wait until we receive a opened packet
 				// we will know if CONNECTIONS has a new entry: Agent_id, socket
 				// we will wait up to 10 seconds
@@ -573,7 +582,8 @@ public class TorRouter {
 			}
 			
 			RouterTableKey newKey = new RouterTableKey(dest_socket,newCid);
-			
+			System.out.println("Sending Create Packet");
+
 			// Send existing tor router a create cell to make extend new circuit
 			try {
 				dest_stream.write(TorCellConverter.getCreateCell(newCid));
@@ -581,7 +591,8 @@ public class TorRouter {
 				System.out.println("Error sending a create cell in relayExtend in write thread");
 				e.printStackTrace();
 			}
-			
+			System.out.println("Waiting for Created Packet");
+
 			// If receive created, new routing table entry: Dest -> null should be added
 			// Wait up to 10 seconds. If we don't get a created key, send create failed
 			try {

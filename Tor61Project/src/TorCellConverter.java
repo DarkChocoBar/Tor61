@@ -170,6 +170,7 @@ public class TorCellConverter {
 		byte[] httpReqArrAgentID = Arrays.copyOfRange(b, TorCellConverter.CELL_HEADER_SIZE, TorCellConverter.CELL_LENGTH);
 		String httpReq = new String(httpReqArrAgentID).split("\0")[0];
 		String host = httpReq.split(":")[0];
+		host = host.replace("/", "");
 		int port = Integer.parseInt(httpReq.split(":")[1]);
 		return new InetSocketAddress(host, port);
 	}
