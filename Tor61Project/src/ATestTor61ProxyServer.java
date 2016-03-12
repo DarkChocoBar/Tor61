@@ -204,7 +204,6 @@ class ServerThread extends Thread {
 			}
 		}
 		System.out.println("Test finshed reading");
-		System.out.println("Test about to check if received relay extend");
 
 		// pass next_cell into TorCellConverter and find out what the command was
 		data = new byte[TorCellConverter.CELL_LENGTH];
