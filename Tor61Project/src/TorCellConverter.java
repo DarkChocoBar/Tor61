@@ -94,7 +94,7 @@ public class TorCellConverter {
 	}
 	
 	public static byte[] getOpenCell(short circuit_id, int opener, int opened) {
-		return OpenCellHelper(circuit_id, OPEN_CELL, opener, opener);
+		return OpenCellHelper(circuit_id, OPEN_CELL, opener, opened);
 	}
 	
 	public static byte[] getOpenedCell(byte[] b) {
@@ -135,7 +135,9 @@ public class TorCellConverter {
 			case OPENED_CELL: return "opened";
 			case OPEN_FAILED_CELL: return "open failed";
 			case CREATE_FAILED_CELL: return "create failed";
-			default: throw new IllegalArgumentException("Invalid cell type");
+			default: 
+				System.out.println("Cell Type: " + tempByte);
+				throw new IllegalArgumentException("Invalid cell type");
 		}
 	}
 
