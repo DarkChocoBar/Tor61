@@ -165,11 +165,11 @@ public class Tor61ProxyThread extends Thread {
     	try {        	
         	Thread cs = new StreamThread(cin, cout);
         	
-        	cs.run();
-        	
+        	cs.start();
         	cs.join();
-        	
+        	        	
         } catch (Exception e) {
+        	e.printStackTrace();
         	System.out.println("Some error in stream method in proxy thread");
         }
     }
