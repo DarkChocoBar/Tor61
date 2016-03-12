@@ -288,6 +288,8 @@ public class P1PMessage {
 			}
 
 			int port = (int) bb.getShort();
+			port = port >= 0 ? port : 0x10000 + port;
+
 			int data = (int) bb.getInt();
 			ret.add(new Entry(addr, port, data));
 		}
