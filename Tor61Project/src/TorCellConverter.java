@@ -41,7 +41,6 @@ public class TorCellConverter {
 	}
 
 	public static byte[] getCreateCell(short circuit_id) {
-		System.out.println("a"+circuit_id);
 		return CreateDestoryCellHelper(circuit_id, CREATE_CELL);
 	}
 	
@@ -234,14 +233,11 @@ public class TorCellConverter {
 	}
 	
 	private static byte[] CreateDestoryCellHelper(short circuit_id, byte cell_num) {
-		System.out.println("b"+circuit_id);
-
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort(circuit_id);
 		bb.put(cell_num);
 		byte[] ret = bb.array();
 		bb.clear();
-		System.out.println("c"+getCircuitId(ret));
 		return ret;
 	}
 	

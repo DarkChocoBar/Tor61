@@ -89,6 +89,21 @@ public class TorRouter {
     	}
     }
 	
+	public void printTables() {
+		System.out.println("ROUTER_TABLE");
+		for (RouterTableKey key: ROUTER_TABLE.keySet()) {
+			System.out.println("\t"+key + " " + ROUTER_TABLE.get(key));
+		}
+		System.out.println("CONNECTIONS");
+		for (Integer i: CONNECTIONS.keySet()) {
+			System.out.println("\t"+i + " " + CONNECTIONS.get(i));
+		}
+		System.out.println("OPENER");
+		for (Socket s: OPENER.keySet()) {
+			System.out.println("\t"+OPENER.get(s));
+		}
+	}
+	
 	/**
 	 * 
 	 * @author Tyler
@@ -151,7 +166,7 @@ public class TorRouter {
 		public ReadThread(Socket s) {
 			this.READ_SOCKET = s;
 		}
-		//TODO
+
 		public void run() {
 			InputStream in = null;
 			byte[] bytes = new byte[TorCellConverter.CELL_LENGTH];
@@ -175,7 +190,7 @@ public class TorRouter {
 						System.out.println("Tor " + readid + " Reading");
 						total_read += read;
 					} catch (IOException e) {
-						System.out.println("Error when reading from buffered");
+						System.out.println("Error when reading from buffered 3");
 					}
 				}
 				System.out.println("Tor " + readid + " Finished Reading");
@@ -205,7 +220,7 @@ public class TorRouter {
 		        
 				String command = TorCellConverter.getCellType(bytes);
 				int cid = TorCellConverter.getCircuitId(bytes);
-				System.out.println("Tor " + readid + " Received Command: "+command);
+				System.out.println("Tor " + readid + " Received Command: "+command + " cid: " + cid);
 				// Do something depending on the command
 				switch (command) {
 					case "open":
@@ -221,11 +236,13 @@ public class TorRouter {
 	
 						// Add new entry to CONNECTIONS with null value
 						CONNECTIONS.put(TorCellConverter.getOpenee(bytes), null);
+						printTables();
 						break;
 						// Add new entry to ROUTER_TABLE with null value
 					case "created":
 						ROUTER_TABLE.put(new RouterTableKey(READ_SOCKET,cid), null);
 						System.out.println("Tor " + readid + " Received Valid Created Command");
+						printTables();
 						break;
 					case "destroy":
 						destroyConnection(cid);
@@ -333,7 +350,9 @@ public class TorRouter {
 		public void run() {
 			// If we are not the end of the circuit, forward to the next tor router
 			if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) != null) {
-
+//TODO
+				System.out.println("Yay we're forwarding");
+				System.out.println("Key: " + routing_key);
 				RouterTableValue value = ROUTER_TABLE.get(routing_key);
 				OutputStream next = value.getStream();
 				int nextCID = value.getCID();
@@ -358,7 +377,9 @@ public class TorRouter {
 								System.out.println("Tor " + readid + " Received Valid Open Command");
 								// Add new connection to CONNECTIONS
 								OPENER.put(socket, new Opener(TorCellConverter.getOpener(bytes), AGENT_ID));
+								CONNECTIONS.put(TorCellConverter.getOpener(bytes), socket);
 								System.out.println("Tor " + readid + " Sending Opened Command to: " + socket.getPort());
+								printTables();
 								byte[] bs = TorCellConverter.getOpenedCell(bytes);
 								//System.out.println(TorCellConverter.getCellType(bs));
 								out.write(bs);
@@ -395,13 +416,19 @@ public class TorRouter {
 							}
 						// Proceed to add the circuit to our router table
 						} else {
-							System.out.println("Tor " + readid + " Received Create Command");
+							System.out.println("Tor " + readid + " Received Create Command " + cid);
+							System.out.println(TorCellConverter.getCircuitId(bytes));
 
+							// Should add to router table and map to null. this indicates we're at the end of the circuit
+							// Open should add things to CONNECTIONS
 							ROUTER_TABLE.put(new RouterTableKey(socket,cid),null);
+							printTables();
 							try {
-								out.write(TorCellConverter.getCreatedCell((short)cid));
-								System.out.println("Tor " + readid + " Sending Created Command to: " + socket.getPort());
-
+								byte[] bs = TorCellConverter.getCreatedCell((short)cid); 
+								System.out.println(TorCellConverter.getCircuitId(bs));
+								out.write(bs);
+								System.out.println("Tor " + readid + " Sending Created Command to: " + socket.getPort() + " " + cid);
+								System.out.println(TorCellConverter.getCircuitId(bytes));
 							} catch (IOException e) {
 								System.out.println("Error when sending created reply in write thread");
 							}
@@ -482,8 +509,9 @@ public class TorRouter {
 				
 				// Insert into router table destination -> source
 				ROUTER_TABLE.put(destToSourceKey, destToSourceValue);
+				printTables();
 			}
-			
+						
 			System.out.println("Tor " + readid + " sending connected message");
 
 			// Reply with connected message
@@ -548,6 +576,7 @@ public class TorRouter {
 			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
 			int agent_id = TorCellConverter.getExtendAgent(bytes);
 
+			printTables();
 
 			Socket dest_socket = null;
 			DataOutputStream dest_stream = null;
@@ -612,7 +641,6 @@ public class TorRouter {
 					}
 				}
 				System.out.println("Tor " + readid + " Waiting for opened packet from Another Tor");
-//TODO
 				
 				// wait until we receive a opened packet
 				try {
@@ -634,7 +662,7 @@ public class TorRouter {
 							read = in.read(bytes);
 							total_read += read;
 						} catch (IOException e) {
-							System.out.println("Error when reading from buffered");
+							System.out.println("Error when reading from buffered 1");
 						}
 					}
 					dest_socket.setSoTimeout(0); // Kill timer
@@ -644,7 +672,7 @@ public class TorRouter {
 						System.out.println("Tor " + readid + " expected opened cell but got something else");
 						System.out.println("Tor " + readid + " sending exted failed to" + socket.getPort());
 						
-						// Send extended cell to client
+						// Send extend failed cell to client
 						for (byte[] bs: TorCellConverter.getRelayCells("extend failed", cid, stream_id, "")) {
 							try {
 								out.write(bs);
@@ -660,6 +688,7 @@ public class TorRouter {
 
 					// Update connections dest_agent_id -> null to dest_agent_id -> dest_socket
 					CONNECTIONS.put(agent_id,dest_socket);
+					printTables();
 					
 				} catch (SocketException e) {
 					// Failed to receive opened cell
@@ -672,13 +701,14 @@ public class TorRouter {
 					return;
 				}
 			}
-			
+						
 			RouterTableKey newKey = new RouterTableKey(dest_socket,newCid);
-			System.out.println("Tor " + readid + " Sending Create Packet to: " + dest_socket.getPort());
+			System.out.println("Tor " + readid + " Sending Create Packet to: " + dest_socket.getPort() + " " + newCid);
 
 			// Send existing tor router a create cell to make extend new circuit
 			try {
 				byte[] bs = TorCellConverter.getCreateCell(newCid);
+				System.out.println(TorCellConverter.getCircuitId(bs));
 				dest_stream.write(bs);
 			} catch (IOException e) {
 				System.out.println("Error sending a create cell in relayExtend in write thread");
@@ -707,7 +737,7 @@ public class TorRouter {
 						read = in.read(bytes);
 						total_read += read;
 					} catch (IOException e) {
-						System.out.println("Error when reading from buffered");
+						System.out.println("Error when reading from buffered 2");
 					}
 				}
 				System.out.println("Tor " + readid + " read something");
@@ -718,19 +748,26 @@ public class TorRouter {
 					System.out.println("Tor " + readid + " sending exted failed to" + socket.getPort());
 					return;
 				} else {
-					System.out.println("Tor " + readid + " received created cell");
+					System.out.println("Tor " + readid + " received created cell " + TorCellConverter.getCircuitId(bytes));
 				}
-				
+								
 				dest_socket.setSoTimeout(0); // Kill timer
-				
+				System.out.println("newcid: " + newCid);
+				System.out.println("cid: " + cid);
+				System.out.println("created cid: " + TorCellConverter.getCircuitId(bytes));
 				RouterTableValue newValueToClient = new RouterTableValue(out,cid);
-				ROUTER_TABLE.put(newKey, newValueToClient);
-				
+				RouterTableValue newValueToDest = new RouterTableValue(dest_stream,newCid);
+
 				// update client -> null to client -> Dest
 				assert(ROUTER_TABLE.get(routing_key) == null);
-				RouterTableValue newValueToDest = new RouterTableValue(dest_stream,newCid);
+				
+				ROUTER_TABLE.put(newKey, newValueToClient);
 				ROUTER_TABLE.put(routing_key, newValueToDest);
 				
+				printTables();
+				
+				System.out.println("Sending extended cell to: local: " + socket.getLocalPort() +" remote: "+socket.getPort() + " cid: " + cid);
+				System.out.println("cid" + cid);
 				// Send extended cell to client
 				for (byte[] bs: TorCellConverter.getRelayCells("extended", cid, stream_id, "")) {
 					try {
@@ -740,6 +777,8 @@ public class TorRouter {
 						System.out.println("Error when sending client extended cell in relayExtend in write thread");
 					}
 				}
+				System.out.println("Sent extended cell");
+
 			} catch (SocketException e) {
 				// This means we timed out. Return create failed cell
 				try {
@@ -748,6 +787,7 @@ public class TorRouter {
 					System.out.println("Error when trying to send create failed cell in relayExtend in write thread");
 				}
 			}
+			printTables();
 			System.out.println("yay finished extend");
 		}
 		

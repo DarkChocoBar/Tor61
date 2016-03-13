@@ -256,11 +256,13 @@ public class Tor61ProxyServer {
 				}
 				none = wait==5 ? true : false;
 			} catch (IOException e2) {
-				System.out.println("Error when reading from buffered");
+				System.out.println("Error when reading from buffered 4");
 			} catch (InterruptedException e2) {
 				e2.printStackTrace();
 			}
 		}
+		TOR_SOCKET.setSoTimeout(0);
+
 		System.out.println("done reading");
 
 		// pass next_cell into TorCellConverter and find out what the command was
@@ -272,10 +274,7 @@ public class Tor61ProxyServer {
 		}
 		System.out.println("checking what we read");
 
-		if (TorCellConverter.getRelaySubcellType(data).equals("extended")) {
-			return true;
-		}
-    	return false;
+		return TorCellConverter.getRelaySubcellType(data).equals("extended");
     }
 
 	private void terminate() {
