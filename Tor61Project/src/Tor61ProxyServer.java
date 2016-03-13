@@ -256,7 +256,7 @@ public class Tor61ProxyServer {
 				}
 				none = wait==5 ? true : false;
 			} catch (IOException e2) {
-				System.out.println("Error when reading from buffered 4");
+				System.out.println("PROXY NEVER RECEIVED EXTENDED IN 5 SECONDS");
 			} catch (InterruptedException e2) {
 				e2.printStackTrace();
 			}
