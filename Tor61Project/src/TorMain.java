@@ -133,7 +133,7 @@ public class TorMain {
 		
 		// Extend Circuit CIRCUIT_SIZE times
 		int current_circuit_size = 0;
-		while (current_circuit_size < 1) {
+		while (current_circuit_size < CIRCUIT_SIZE) {
 			System.out.println("Attempting to Extend Circuit...");
 			// If number of entries = 3, choose a random index 0,1,2
 			Entry e = entries.get(r.nextInt(entries.size()));

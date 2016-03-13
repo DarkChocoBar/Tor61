@@ -241,7 +241,7 @@ public class Tor61ProxyServer {
 
 		// Read the next 512 bytes (one tor cell)
 		char[] next_cell = new char[512];
-
+	System.out.println("about to read");
 		int read = 0;
 		boolean none = false;
 		while (read < 512 && read != -1 && !none) {
@@ -261,6 +261,7 @@ public class Tor61ProxyServer {
 				e2.printStackTrace();
 			}
 		}
+		System.out.println("done reading");
 
 		// pass next_cell into TorCellConverter and find out what the command was
 		byte[] data = new byte[TorCellConverter.CELL_LENGTH];
@@ -269,6 +270,7 @@ public class Tor61ProxyServer {
 		} catch (UnsupportedEncodingException e2) {
 			e2.printStackTrace();
 		}
+		System.out.println("checking what we read");
 
 		if (TorCellConverter.getRelaySubcellType(data).equals("extended")) {
 			return true;

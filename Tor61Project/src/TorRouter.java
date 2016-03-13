@@ -333,12 +333,19 @@ public class TorRouter {
 		public void run() {
 			// If we are not the end of the circuit, forward to the next tor router
 			if (ROUTER_TABLE.containsKey(routing_key) && ROUTER_TABLE.get(routing_key) != null) {
+
 				RouterTableValue value = ROUTER_TABLE.get(routing_key);
 				OutputStream next = value.getStream();
 				int nextCID = value.getCID();
 				try {
-					next.write(TorCellConverter.updateCID(bytes,nextCID));
-					next.flush();
+					//System.out.println(TorCellConverter.getCellType(bytes));
+					//System.out.println(TorCellConverter.getRelaySubcellType(bytes));
+					byte[] bs = TorCellConverter.updateCID(bytes,nextCID);
+					//System.out.println(TorCellConverter.getCellType(bytes));
+					//System.out.println(TorCellConverter.getRelaySubcellType(bytes));
+					next.write(bs);
+					next.flush();			
+
 				} catch (IOException e) {
 					System.out.println("Error when 'forwarding' packets to next router in writethread");
 				}
@@ -536,7 +543,6 @@ public class TorRouter {
 		
 		// Handles dealing with a relayExtend command
 		private void relayExtend() {
-
 			assert(ROUTER_TABLE.containsKey(routing_key));
 			assert(ROUTER_TABLE.get(routing_key) == null);
 			InetSocketAddress address = TorCellConverter.getExtendDestination(bytes);
@@ -673,7 +679,6 @@ public class TorRouter {
 			// Send existing tor router a create cell to make extend new circuit
 			try {
 				byte[] bs = TorCellConverter.getCreateCell(newCid);
-				System.out.println("Indeed sending command: " + TorCellConverter.getCellType(bs));
 				dest_stream.write(bs);
 			} catch (IOException e) {
 				System.out.println("Error sending a create cell in relayExtend in write thread");
