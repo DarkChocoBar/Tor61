@@ -332,7 +332,7 @@ public class P1PMessage {
 			int port = Integer.parseInt(s);
 
 			//if (port < 1024 || port > 49151)
-			if (port < 1024 || port > 99999)
+			if (port < 1024 || port > 65535)
 				return false;
 		} catch (NumberFormatException e) {
 			return false;

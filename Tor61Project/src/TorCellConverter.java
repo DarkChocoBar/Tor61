@@ -41,6 +41,7 @@ public class TorCellConverter {
 	}
 
 	public static byte[] getCreateCell(short circuit_id) {
+		System.out.println("a"+circuit_id);
 		return CreateDestoryCellHelper(circuit_id, CREATE_CELL);
 	}
 	
@@ -118,7 +119,8 @@ public class TorCellConverter {
 	public static short getCircuitId(byte[] b) {
 		assert(b.length >= 2);
 		ByteBuffer bb = ByteBuffer.wrap(b);
-		return (short) ((bb.getShort() >> 8) & 0xFF);		// deal with unsigned short
+		short s = bb.getShort();
+		return (short) (s >= 0 ? s : 0x10000 + s); 
 	}
 	
 	public static String getCellType(byte[] b) {
@@ -232,11 +234,14 @@ public class TorCellConverter {
 	}
 	
 	private static byte[] CreateDestoryCellHelper(short circuit_id, byte cell_num) {
+		System.out.println("b"+circuit_id);
+
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort(circuit_id);
 		bb.put(cell_num);
 		byte[] ret = bb.array();
 		bb.clear();
+		System.out.println("c"+getCircuitId(ret));
 		return ret;
 	}
 	
