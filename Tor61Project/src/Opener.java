@@ -35,4 +35,9 @@ public class Opener {
 	public boolean isOpener(int opener) {
 		return this.opener == opener;
 	}
+	
+	@Override
+	public String toString() {
+		return "Opener: " + opener + " Openee: " + openee;
+	}
 }

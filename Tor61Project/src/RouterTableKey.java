@@ -30,4 +30,9 @@ public class RouterTableKey {
 		}
 		return false;
 	}
+	
+	@Override
+	public String toString() {
+		return "Local: " + socket.getLocalPort() + " Remote: " + socket.getPort() + " cid: " + circuit_id;
+	}
 }

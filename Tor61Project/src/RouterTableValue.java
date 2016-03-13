@@ -30,4 +30,9 @@ public class RouterTableValue {
 	public int getCID() {
 		return circuit_id;
 	}
+	
+	@Override
+	public String toString() {
+		return " Value Cid: " + circuit_id;
+	}
 }
