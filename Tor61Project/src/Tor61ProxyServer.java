@@ -106,7 +106,7 @@ public class Tor61ProxyServer {
 			
 			TOR_SOCKET.setSoTimeout(0);
 			if (TorCellConverter.getCellType(data).equals("opened")) {
-				out.write(TorCellConverter.getCreateCell(data));
+				out.write(TorCellConverter.getCreateCell(CID));
 
 				startTime = System.currentTimeMillis();
 				// Wait for the data get pushed into the BufferedReader, timeout after 5 secs
