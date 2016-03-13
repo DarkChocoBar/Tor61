@@ -201,7 +201,7 @@ public class TorCellConverter {
 	public static byte[] updateCID(byte[] b, int newCID) {
 		bb = ByteBuffer.allocate(CELL_LENGTH);
 		bb.putShort((short) newCID);
-		bb.put(Arrays.copyOfRange(b, 3, b.length));
+		bb.put(Arrays.copyOfRange(b, 2, b.length));
 		b = bb.array();
 		bb.clear();
 		return b;
